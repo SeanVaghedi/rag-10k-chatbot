@@ -1,0 +1,25 @@
+# Core app
+streamlit
+
+# LangChain framework + provider integrations
+langchain>=0.1.0
+langchain-community
+langchain-google-genai
+langchain-openai
+langchain-anthropic
+langchain-ollama
+
+# Provider SDKs
+google-generativeai
+openai
+anthropic
+
+# Document loading / parsing
+pypdf
+
+# Vector store + tokenization
+faiss-cpu
+tiktoken
+
+# Config / environment
+python-dotenv
