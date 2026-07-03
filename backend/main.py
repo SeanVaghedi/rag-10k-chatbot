@@ -164,6 +164,7 @@ class Source(BaseModel):
     year: Optional[int] = None
     page: Optional[int] = None
     source_filename: Optional[str] = None
+    chunk_text: Optional[str] = None
 
 
 class AskResponse(BaseModel):

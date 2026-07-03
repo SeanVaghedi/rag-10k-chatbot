@@ -11,6 +11,9 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { motion } from "framer-motion";
 import type { Source } from "@/lib/types";
 import { API_URL } from "@/lib/api";
+import { computeMatchedSpans, type HighlightOutcome } from "@/lib/pdfMatch";
+// Text layer CSS is required for correct span positioning (highlighting needs it).
+import "react-pdf/dist/esm/Page/TextLayer.css";
 
 // The pdf.js worker is copied into public/ by scripts/copy-pdf-worker.mjs
 // (wired into predev/prebuild) and served as a static asset. react-pdf 7 /
@@ -62,6 +65,21 @@ function NavButton({
   );
 }
 
+function HighlightNote({ outcome }: { outcome: HighlightOutcome }) {
+  const map = {
+    full: { dot: "bg-accent2", text: "Highlighted cited passage" },
+    partial: { dot: "bg-amber-400", text: "Cited page · partial highlight" },
+    none: { dot: "bg-faint", text: "Showing cited page" },
+  } as const;
+  const { dot, text } = map[outcome];
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md bg-white/5 px-1.5 py-0.5 font-mono text-[11px] text-muted ring-1 ring-inset ring-white/10">
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+      {text}
+    </span>
+  );
+}
+
 interface Props {
   source: Source;
   onClose: () => void;
@@ -70,6 +88,8 @@ interface Props {
 export default function PdfViewerModal({ source, onClose }: Props) {
   const filename = source.source_filename ?? "";
   const url = `${API_URL}/pdfs/${encodeURIComponent(filename)}`;
+  const chunkText = source.chunk_text ?? "";
+  const hasChunk = chunkText.trim().length > 0;
 
   // source.page is already 1-based (loader uses `enumerate(pages, start=1)`),
   // and react-pdf's Page `pageNumber` is also 1-based — so use it directly.
@@ -80,7 +100,13 @@ export default function PdfViewerModal({ source, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [pageWidth, setPageWidth] = useState(720);
+  const [highlightStatus, setHighlightStatus] = useState<
+    "pending" | HighlightOutcome
+  >("pending");
+
   const bodyRef = useRef<HTMLDivElement>(null);
+  const pageWrapRef = useRef<HTMLDivElement>(null);
+  const didScrollRef = useRef(false);
 
   // Close on Escape.
   useEffect(() => {
@@ -102,8 +128,11 @@ export default function PdfViewerModal({ source, onClose }: Props) {
     return () => ro.disconnect();
   }, []);
 
-  // Scroll back to the top of the page when navigating.
+  // On page change: reset scroll + highlight state (highlights recompute when
+  // the new page's text layer renders).
   useEffect(() => {
+    didScrollRef.current = false;
+    setHighlightStatus("pending");
     bodyRef.current?.scrollTo({ top: 0 });
   }, [pageNumber]);
 
@@ -125,8 +154,70 @@ export default function PdfViewerModal({ source, onClose }: Props) {
     setError(null);
     setNumPages(null);
     setPageNumber(targetPage);
+    setHighlightStatus("pending");
+    didScrollRef.current = false;
     setReloadKey((k) => k + 1);
   };
+
+  // Apply highlights over the rendered text layer. Fully defensive: any failure
+  // leaves the page displayed exactly as before (page-jump is never blocked).
+  const applyHighlights = useCallback(() => {
+    const wrap = pageWrapRef.current;
+    if (!wrap) return;
+    const layer =
+      wrap.querySelector(".react-pdf__Page__textContent") ??
+      wrap.querySelector(".textLayer");
+    if (!layer) return;
+
+    // Clear any prior marks (text layer is rebuilt on resize / page change).
+    layer.querySelectorAll("span.pdf-hl").forEach((el) => {
+      el.classList.remove("pdf-hl");
+      (el as HTMLElement).style.animationDelay = "";
+    });
+
+    if (!hasChunk || pageNumber !== targetPage) {
+      setHighlightStatus("none");
+      return;
+    }
+
+    const spanEls = Array.from(layer.querySelectorAll("span")).filter(
+      (el) =>
+        (el.textContent || "").trim().length > 0 &&
+        !el.classList.contains("markedContent"),
+    ) as HTMLElement[];
+
+    const { matched, outcome } = computeMatchedSpans(spanEls, chunkText);
+    matched.forEach((el, i) => {
+      el.classList.add("pdf-hl");
+      el.style.animationDelay = `${Math.min(i * 18, 320)}ms`;
+    });
+
+    if (matched.length && !didScrollRef.current) {
+      didScrollRef.current = true;
+      const reduce =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      matched[0].scrollIntoView({
+        block: "center",
+        behavior: reduce ? "auto" : "smooth",
+      });
+    }
+    setHighlightStatus(outcome);
+  }, [hasChunk, pageNumber, targetPage, chunkText]);
+
+  // Never block modal open on matching: defer to after paint.
+  const handleTextLayerRender = useCallback(() => {
+    requestAnimationFrame(() => {
+      try {
+        applyHighlights();
+      } catch {
+        setHighlightStatus("none"); // page stays displayed regardless
+      }
+    });
+  }, [applyHighlights]);
+
+  const showNote =
+    hasChunk && pageNumber === targetPage && highlightStatus !== "pending";
 
   return (
     <motion.div
@@ -163,8 +254,11 @@ export default function PdfViewerModal({ source, onClose }: Props) {
                 </span>
               )}
               <span className="font-mono text-[11px] text-muted">
-                jumped to p.{targetPage}
+                p.{targetPage}
               </span>
+              {showNote && (
+                <HighlightNote outcome={highlightStatus as HighlightOutcome} />
+              )}
             </div>
             <p
               className="mt-0.5 truncate font-mono text-[11px] text-muted"
@@ -231,14 +325,18 @@ export default function PdfViewerModal({ source, onClose }: Props) {
               loading={<Spinner label="Loading filing…" />}
               error={<span />}
             >
-              <Page
-                pageNumber={pageNumber}
-                width={pageWidth}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                loading={<Spinner label={`Rendering page ${pageNumber}…`} />}
-                className="overflow-hidden rounded-lg shadow-[0_10px_40px_-12px_rgba(0,0,0,0.8)]"
-              />
+              <div ref={pageWrapRef} className="relative">
+                <Page
+                  pageNumber={pageNumber}
+                  width={pageWidth}
+                  renderTextLayer
+                  renderAnnotationLayer={false}
+                  onRenderTextLayerSuccess={handleTextLayerRender}
+                  onRenderTextLayerError={() => setHighlightStatus("none")}
+                  loading={<Spinner label={`Rendering page ${pageNumber}…`} />}
+                  className="overflow-hidden rounded-lg shadow-[0_10px_40px_-12px_rgba(0,0,0,0.8)]"
+                />
+              </div>
             </Document>
           )}
         </div>

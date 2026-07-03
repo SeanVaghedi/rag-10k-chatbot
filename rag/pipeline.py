@@ -91,6 +91,8 @@ class RagPipeline:
             "year": meta.get("year"),
             "page": meta.get("page"),
             "source_filename": meta.get("source_filename"),
+            # Raw chunk text, so the frontend can try to highlight it on the page.
+            "chunk_text": doc.page_content,
         }
 
     def ask(self, question: str) -> Tuple[str, List[Source]]:

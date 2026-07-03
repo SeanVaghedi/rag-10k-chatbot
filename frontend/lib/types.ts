@@ -9,6 +9,8 @@ export interface Source {
   year: number | null;
   page: number | null;
   source_filename: string | null;
+  /** Raw retrieved chunk text; used to highlight the passage in the PDF. */
+  chunk_text?: string | null;
 }
 
 export type Role = "user" | "assistant";
