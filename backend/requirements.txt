@@ -1,0 +1,14 @@
+# Backend (API layer) dependencies.
+#
+# IMPORTANT: the root requirements.txt deps MUST also be installed — this file
+# only adds the web-server layer on top of the RAG pipeline (langchain,
+# faiss-cpu, the provider SDKs, python-dotenv, etc. all live there). Install both:
+#
+#     pip install -r requirements.txt
+#     pip install -r backend/requirements.txt
+#
+# SSE streaming is implemented directly with FastAPI's StreamingResponse
+# (text/event-stream), so sse-starlette is not required.
+
+fastapi
+uvicorn[standard]
