@@ -75,6 +75,12 @@ figure for a specifically named company, say so rather than substituting another
 6. INSUFFICIENT CONTEXT: If the retrieved context is partial or ambiguous, state what is available \
 and what is missing rather than guessing.
 
+7. CITATIONS: Support every claim with an inline citation to the numbered excerpt(s) you used. Put \
+the excerpt number(s) in square brackets right after the statement — e.g. "Amazon's total net sales \
+were $X in fiscal 2024 [2]" or "[1, 3]" when a statement draws on more than one excerpt. Cite ONLY \
+the excerpts you actually relied on; never cite an excerpt you did not use. If the context does not \
+contain the answer, say so and cite no excerpt.
+
 Be concise and factual. Do not add hedging language beyond stating when the context is \
 insufficient."""
 
@@ -86,7 +92,9 @@ including the filing's fiscal year):
 Question: {question}
 
 Answer using only the excerpts above. When stating which fiscal year a figure is from, use the \
-FY<year> in that excerpt's source header, not a year written inline in the text."""
+FY<year> in that excerpt's source header, not a year written inline in the text. Cite the excerpt \
+number(s) in square brackets after each claim (e.g. [2] or [1, 3]), and cite only the excerpts you \
+used."""
 
 # The RAG prompt used by the pipeline. Expects `context` and `question` vars.
 RAG_PROMPT = ChatPromptTemplate.from_messages(

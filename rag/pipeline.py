@@ -7,6 +7,7 @@ and exposes :meth:`ask` to answer a question with its supporting sources.
 
 from __future__ import annotations
 
+import re
 from typing import AsyncIterator, Dict, List, Tuple, Union
 
 from langchain_core.documents import Document
@@ -20,6 +21,10 @@ from rag.vectorstore import index_exists, load_vectorstore, persist_dir_for
 
 # A source is the attribution metadata for one retrieved chunk.
 Source = Dict[str, object]
+
+# Inline citation markers in the answer text, e.g. "[1]" or "[2, 3]". Only
+# digits/commas/whitespace inside the brackets, so "[note]" or "[3.5]" won't match.
+_CITATION_RE = re.compile(r"\[([\d,\s]+)\]")
 
 
 class RagPipeline:
@@ -95,6 +100,24 @@ class RagPipeline:
             "chunk_text": doc.page_content,
         }
 
+    @classmethod
+    def _cited_sources(cls, answer: str, docs: List[Document]) -> List[Source]:
+        """Return sources for only the chunks the answer cites, first-cited order.
+
+        Parses inline markers like ``[1]`` / ``[2, 3]`` from ``answer`` and keeps
+        only those excerpt numbers (1-based, within range). Retrieved-but-uncited
+        chunks are dropped; if the answer cites nothing, returns an empty list.
+        """
+        order: List[int] = []
+        seen: set = set()
+        for match in _CITATION_RE.finditer(answer or ""):
+            for num in re.findall(r"\d+", match.group(1)):
+                idx = int(num)
+                if 1 <= idx <= len(docs) and idx not in seen:
+                    seen.add(idx)
+                    order.append(idx)
+        return [cls._to_source(docs[i - 1]) for i in order]
+
     def ask(self, question: str) -> Tuple[str, List[Source]]:
         """Answer ``question`` from the indexed 10-Ks.
 
@@ -104,7 +127,7 @@ class RagPipeline:
         """
         result = self._chain.invoke(question)
         answer: str = result["answer"]
-        sources = [self._to_source(doc) for doc in result["docs"]]
+        sources = self._cited_sources(answer, result["docs"])
         return answer, sources
 
     async def astream(self, question: str) -> AsyncIterator[Union[str, List[Source]]]:
@@ -121,9 +144,12 @@ class RagPipeline:
         """
         docs = await self.retriever.ainvoke(question)
         context = format_docs(docs)
+        parts: List[str] = []
         async for token in self._answer_chain.astream(
             {"context": context, "question": question}
         ):
             if token:
+                parts.append(token)
                 yield token
-        yield [self._to_source(doc) for doc in docs]
+        # Surface only the chunks the finished answer actually cited.
+        yield self._cited_sources("".join(parts), docs)
