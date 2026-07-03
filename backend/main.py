@@ -34,7 +34,7 @@ from dotenv import load_dotenv  # noqa: E402
 from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.concurrency import run_in_threadpool  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import StreamingResponse  # noqa: E402
+from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from config.providers import REGISTRY  # noqa: E402
@@ -49,6 +49,9 @@ load_dotenv()
 # defaults.
 DEFAULT_CHUNK_SIZE = 1000
 DEFAULT_CHUNK_OVERLAP = 150
+
+# Directory holding the 10-K PDFs, served read-only at /pdfs/{filename}.
+PDF_DIR = (_PROJECT_ROOT / "data" / "pdfs").resolve()
 
 # Friendly labels for the frontend; falls back to a title-cased name.
 _DISPLAY_LABELS = {
@@ -80,7 +83,31 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
+    # Let the browser's PDF loader read range/length headers cross-origin.
+    expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Static PDF serving (for the frontend viewer's open-to-page)
+# ---------------------------------------------------------------------------
+@app.get("/pdfs/{filename}")
+def get_pdf(filename: str) -> FileResponse:
+    """Serve a 10-K PDF by basename from data/pdfs/ as application/pdf.
+
+    Only a bare basename is accepted (no directories or ``..`` traversal). The
+    name must exactly match a file on disk — the same basename stored in each
+    source's ``source_filename`` — so the frontend can build the URL directly.
+    """
+    safe_name = Path(filename).name
+    if safe_name != filename or not safe_name.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Invalid PDF filename.")
+
+    path = PDF_DIR / safe_name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"PDF '{safe_name}' not found.")
+
+    return FileResponse(path, media_type="application/pdf")
 
 
 # ---------------------------------------------------------------------------

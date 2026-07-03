@@ -8,7 +8,18 @@ function titleCase(value: string | null): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function SourceCard({ source, index }: { source: Source; index: number }) {
+function SourceCard({
+  source,
+  index,
+  onOpen,
+}: {
+  source: Source;
+  index: number;
+  onOpen?: (s: Source) => void;
+}) {
+  const clickable = !!source.source_filename && !!onOpen;
+  const open = () => clickable && onOpen?.(source);
+
   return (
     <motion.li
       layout
@@ -21,18 +32,59 @@ function SourceCard({ source, index }: { source: Source; index: number }) {
         damping: 28,
         delay: index * 0.07,
       }}
-      whileHover={{ y: -2 }}
-      className="glass light-edge group relative overflow-hidden rounded-xl p-3.5"
+      whileHover={clickable ? { y: -2 } : undefined}
+      onClick={open}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                open();
+              }
+            }
+          : undefined
+      }
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      aria-label={
+        clickable
+          ? `Open ${titleCase(source.company)} FY${source.year} filing at page ${source.page}`
+          : undefined
+      }
+      className={`glass light-edge group relative overflow-hidden rounded-xl p-3.5 ${
+        clickable
+          ? "cursor-pointer transition-colors hover:ring-1 hover:ring-inset hover:ring-accent2/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent2/60"
+          : ""
+      }`}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-display text-sm font-semibold text-white">
           {titleCase(source.company)}
         </span>
-        {source.year != null && (
-          <span className="rounded-md bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] text-accent2 ring-1 ring-inset ring-accent/25">
-            FY{source.year}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {clickable && (
+            <span
+              aria-hidden
+              className="text-accent2 opacity-0 transition-opacity group-hover:opacity-100"
+              title="Open PDF at this page"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M14 4h6v6M20 4l-8 8M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          )}
+          {source.year != null && (
+            <span className="rounded-md bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] text-accent2 ring-1 ring-inset ring-accent/25">
+              FY{source.year}
+            </span>
+          )}
+        </div>
       </div>
       <div className="mt-2 flex items-center gap-2 font-mono text-[11px] text-muted">
         {source.page != null && (
@@ -48,7 +100,13 @@ function SourceCard({ source, index }: { source: Source; index: number }) {
   );
 }
 
-export function SourcesPanel({ sources }: { sources: Source[] }) {
+export function SourcesPanel({
+  sources,
+  onOpenSource,
+}: {
+  sources: Source[];
+  onOpenSource?: (s: Source) => void;
+}) {
   const hasSources = sources.length > 0;
 
   return (
@@ -75,6 +133,7 @@ export function SourcesPanel({ sources }: { sources: Source[] }) {
                 key={`${source.source_filename}-${source.page}-${i}`}
                 source={source}
                 index={i}
+                onOpen={onOpenSource}
               />
             ))}
           </AnimatePresence>

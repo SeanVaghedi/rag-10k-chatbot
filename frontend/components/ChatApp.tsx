@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import type { ChatMessage, ConfigInfo, Source } from "@/lib/types";
 import { fetchConfigs, streamAsk } from "@/lib/api";
 import { Background } from "./Background";
@@ -10,6 +11,12 @@ import { ConfigSwitcher } from "./ConfigSwitcher";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { SourcesPanel } from "./SourcesPanel";
+
+// Lazy-load the PDF viewer (react-pdf / pdfjs) so it stays out of the main
+// bundle and only loads when a source is opened. Client-only.
+const PdfViewerModal = dynamic(() => import("./PdfViewerModal"), {
+  ssr: false,
+});
 
 const EXAMPLE_QUESTIONS = [
   "How much cash did Amazon hold at the end of fiscal 2024?",
@@ -30,6 +37,7 @@ export default function ChatApp() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeSource, setActiveSource] = useState<Source | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -145,6 +153,11 @@ export default function ChatApp() {
     [input, isStreaming, selected, configError, indexMissing],
   );
 
+  const openSource = useCallback((s: Source) => {
+    setActiveSource(s);
+    setDrawerOpen(false); // close the mobile drawer so the viewer is unobstructed
+  }, []);
+
   const isEmpty = messages.length === 0;
 
   return (
@@ -237,7 +250,7 @@ export default function ChatApp() {
 
           {/* Sources — secondary bento cell (desktop) */}
           <aside className="glass-panel light-edge hidden w-[358px] shrink-0 flex-col rounded-3xl p-5 lg:flex">
-            <SourcesPanel sources={latestSources} />
+            <SourcesPanel sources={latestSources} onOpenSource={openSource} />
           </aside>
         </main>
 
@@ -277,10 +290,24 @@ export default function ChatApp() {
                   </button>
                 </div>
                 <div className="min-h-0 flex-1">
-                  <SourcesPanel sources={latestSources} />
+                  <SourcesPanel
+                    sources={latestSources}
+                    onOpenSource={openSource}
+                  />
                 </div>
               </motion.aside>
             </>
+          )}
+        </AnimatePresence>
+
+        {/* PDF viewer (lazy) */}
+        <AnimatePresence>
+          {activeSource && (
+            <PdfViewerModal
+              key="pdf-viewer"
+              source={activeSource}
+              onClose={() => setActiveSource(null)}
+            />
           )}
         </AnimatePresence>
       </div>
