@@ -3,9 +3,11 @@
 import { motion } from "framer-motion";
 
 /**
- * Ambient animated backdrop: slow-drifting color fields behind a fine grid and
- * a whisper of film grain. Purely decorative, non-interactive, and kept low
- * enough in contrast that it never competes with the content.
+ * Calm ambient backdrop: two slow, softly-drifting aurora fields beneath a
+ * faint structural grid and a whisper of grain. Deliberately low-contrast so it
+ * reads as depth, never as decoration competing with the glass surfaces.
+ * Motion loops are transform-only and are frozen under reduced-motion via the
+ * app-level <MotionConfig reducedMotion="user">.
  */
 export function Background() {
   return (
@@ -13,34 +15,22 @@ export function Background() {
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
-      {/* deep base gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(120%_120%_at_50%_-10%,#101430_0%,#0a0b18_45%,#070810_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(130%_120%_at_50%_-15%,#12142c_0%,#0a0b18_46%,#06070e_100%)]" />
 
-      {/* drifting aurora fields */}
       <motion.div
-        className="absolute -top-1/4 left-1/2 h-[60vh] w-[60vh] -translate-x-1/2 rounded-full bg-[#5b4bff]/25 blur-[130px]"
-        animate={{ x: [-60, 60, -60], y: [-20, 30, -20], scale: [1, 1.12, 1] }}
-        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute -top-[20%] left-1/2 h-[62vh] w-[62vh] -translate-x-1/2 rounded-full bg-[#5b4bff]/20 blur-[150px]"
+        animate={{ x: [-50, 50, -50], y: [-16, 26, -16], scale: [1, 1.1, 1] }}
+        transition={{ duration: 28, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute top-1/3 -left-24 h-[46vh] w-[46vh] rounded-full bg-[#12d6ff]/16 blur-[120px]"
-        animate={{ x: [0, 80, 0], y: [0, -40, 0], scale: [1, 1.18, 1] }}
-        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute bottom-[-20%] right-[-10%] h-[52vh] w-[52vh] rounded-full bg-[#a855f7]/16 blur-[130px]"
-        animate={{ x: [0, -70, 0], y: [0, 40, 0], scale: [1.05, 1, 1.05] }}
-        transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute bottom-[-18%] right-[-8%] h-[54vh] w-[54vh] rounded-full bg-[#12c8ff]/14 blur-[150px]"
+        animate={{ x: [0, -60, 0], y: [0, 34, 0], scale: [1.05, 1, 1.05] }}
+        transition={{ duration: 34, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* structural grid */}
-      <div className="bg-grid absolute inset-0 opacity-[0.05]" />
-
-      {/* grain */}
-      <div className="bg-noise absolute inset-0 opacity-[0.035] mix-blend-soft-light" />
-
-      {/* vignette to seat the content */}
-      <div className="absolute inset-0 bg-[radial-gradient(120%_100%_at_50%_50%,transparent_55%,rgba(0,0,0,0.55)_100%)]" />
+      <div className="bg-grid absolute inset-0 opacity-[0.04]" />
+      <div className="bg-noise absolute inset-0 opacity-[0.03] mix-blend-soft-light" />
+      <div className="absolute inset-0 bg-[radial-gradient(120%_100%_at_50%_50%,transparent_58%,rgba(0,0,0,0.6)_100%)]" />
     </div>
   );
 }

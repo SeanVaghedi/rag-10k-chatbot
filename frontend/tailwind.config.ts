@@ -6,15 +6,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#070810",
-        ink: "#e9edf7",
-        muted: "#8b93a9",
-        faint: "#5a6178",
-        line: "rgba(255,255,255,0.08)",
-        surface: "rgba(255,255,255,0.035)",
-        accent: "#8b7dff",
-        accent2: "#3fe0ff",
-        good: "#4ade80",
+        bg: "#06070e",
+        ink: "#eef1fa",
+        muted: "#9aa2b8",
+        faint: "#646c82",
+        line: "rgba(255,255,255,0.09)",
+        // Restrained aurora accent — used only for state + emphasis.
+        accent: "#8b7dff", // iris / violet
+        accent2: "#4fe3ff", // cyan
+        mint: "#86ffd0", // aurora highlight (used sparingly)
+        good: "#57e389",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
@@ -22,23 +23,11 @@ const config: Config = {
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       boxShadow: {
-        glow: "0 0 50px -12px rgba(139,125,255,0.55)",
-        "glow-cyan": "0 0 40px -10px rgba(63,224,255,0.5)",
-        panel: "0 24px 60px -24px rgba(0,0,0,0.7)",
+        glow: "0 0 40px -10px rgba(139,125,255,0.5)",
+        "glow-cyan": "0 0 36px -12px rgba(79,227,255,0.5)",
       },
-      keyframes: {
-        "fade-up": {
-          "0%": { opacity: "0", transform: "translateY(10px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        float: {
-          "0%,100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-14px)" },
-        },
-      },
-      animation: {
-        "fade-up": "fade-up 0.5s cubic-bezier(0.22,1,0.36,1) both",
-        float: "float 8s ease-in-out infinite",
+      transitionTimingFunction: {
+        spring: "cubic-bezier(0.22,1,0.36,1)",
       },
     },
   },

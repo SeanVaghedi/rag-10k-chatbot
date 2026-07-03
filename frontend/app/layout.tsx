@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const display = Space_Grotesk({
+// Deliberate pairing: a characterful contemporary grotesque for display, a
+// neutral highly-legible sans for body, and a mono for data/labels.
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-display",
   display: "swap",
@@ -25,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#070810",
+  themeColor: "#06070e",
   width: "device-width",
   initialScale: 1,
 };

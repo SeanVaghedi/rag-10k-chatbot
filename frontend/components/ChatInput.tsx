@@ -8,7 +8,6 @@ interface Props {
   onChange: (value: string) => void;
   onSend: () => void;
   disabled?: boolean;
-  /** Streaming in progress — used to render the animated send/stop state. */
   streaming?: boolean;
   placeholder?: string;
   hint?: string | null;
@@ -25,7 +24,6 @@ export function ChatInput({
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-grow the textarea up to a max height.
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -44,12 +42,7 @@ export function ChatInput({
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="glass-strong relative flex items-end gap-2 rounded-2xl p-2 shadow-panel focus-within:ring-1 focus-within:ring-inset focus-within:ring-accent/40"
-      >
+      <div className="glass light-edge relative flex items-end gap-2 rounded-2xl p-2 transition-shadow focus-within:shadow-glow-cyan">
         <textarea
           ref={textareaRef}
           rows={1}
@@ -60,16 +53,18 @@ export function ChatInput({
           placeholder={placeholder ?? "Ask about the filings…"}
           className="max-h-[200px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] leading-relaxed text-ink placeholder:text-faint focus:outline-none disabled:opacity-60"
         />
-        <button
+        <motion.button
           type="button"
           onClick={onSend}
           disabled={!canSend}
           aria-label="Send message"
-          className="group relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-accent to-accent2 text-[#0a0b18] transition-all hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+          whileHover={canSend ? { scale: 1.05 } : undefined}
+          whileTap={canSend ? { scale: 0.94 } : undefined}
+          className="light-edge group relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-accent to-accent2 text-[#080a16] transition-shadow hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
         >
           {streaming ? (
             <motion.span
-              className="h-3 w-3 rounded-[3px] bg-[#0a0b18]"
+              className="h-3 w-3 rounded-[3px] bg-[#080a16]"
               animate={{ opacity: [1, 0.4, 1] }}
               transition={{ duration: 1, repeat: Infinity }}
             />
@@ -84,14 +79,15 @@ export function ChatInput({
               />
             </svg>
           )}
-        </button>
-      </motion.div>
-      <div className="flex items-center justify-between px-2 pt-2">
-        <p className="text-[11.5px] text-faint">
+        </motion.button>
+      </div>
+      <div className="px-2 pt-2">
+        <p className="text-[11.5px] text-muted">
           {hint ?? (
             <>
-              <kbd className="font-mono text-muted">Enter</kbd> to send ·{" "}
-              <kbd className="font-mono text-muted">Shift+Enter</kbd> for newline
+              <kbd className="font-mono text-ink/70">Enter</kbd> to send ·{" "}
+              <kbd className="font-mono text-ink/70">Shift + Enter</kbd> for a
+              new line
             </>
           )}
         </p>

@@ -1,19 +1,32 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { ConfigInfo } from "@/lib/types";
+
+/** Compact display names for the segmented control (full label stays in the
+ * tooltip). Presentation-only — the backend `name` is always what's sent. */
+const SHORT_LABELS: Record<string, string> = {
+  gemini_native: "Gemini",
+  openai_native: "OpenAI",
+  gemini_llm_openai_embed: "Gemini · OpenAI",
+  llama_local: "Llama",
+  llama_gemini_embed: "Llama · Gemini",
+};
+
+function shortLabel(c: ConfigInfo): string {
+  return SHORT_LABELS[c.name] ?? c.label;
+}
 
 function StatusDot({ built }: { built: boolean }) {
   return (
-    <span className="relative inline-flex h-2 w-2 shrink-0">
+    <span className="relative inline-flex h-[7px] w-[7px] shrink-0">
       <span
         className={`absolute inset-0 rounded-full ${
-          built ? "bg-good" : "bg-faint"
+          built ? "bg-good shadow-[0_0_8px_rgba(87,227,137,0.9)]" : "bg-faint"
         }`}
       />
       {built && (
-        <span className="absolute inset-0 animate-ping rounded-full bg-good/70" />
+        <span className="absolute inset-0 animate-ping rounded-full bg-good/60" />
       )}
     </span>
   );
@@ -34,131 +47,77 @@ export function ConfigSwitcher({
   disabled,
   loading,
 }: Props) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onEsc);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onEsc);
-    };
-  }, []);
-
-  const current = configs.find((c) => c.name === selected);
-  const label = loading
-    ? "Loading configs…"
-    : (current?.label ?? selected);
+  if (loading) {
+    return (
+      <div className="glass light-edge flex items-center gap-1 rounded-full p-1">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-7 w-20 animate-pulse rounded-full bg-white/5"
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        disabled={disabled || loading}
-        onClick={() => setOpen((o) => !o)}
-        className="group flex w-full items-center gap-2.5 rounded-xl glass px-3.5 py-2.5 text-left transition-colors hover:ring-1 hover:ring-inset hover:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60 sm:w-[260px]"
-      >
-        {current ? (
-          <StatusDot built={current.index_built} />
-        ) : (
-          <span className="h-2 w-2 rounded-full bg-faint" />
-        )}
-        <span className="flex-1 truncate text-sm font-medium text-ink">
-          {label}
-        </span>
-        <motion.svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="text-muted"
-        >
-          <path
-            d="M6 9l6 6 6-6"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </motion.svg>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: "easeOut" }}
-            className="glass-strong absolute right-0 z-50 mt-2 w-[280px] origin-top-right overflow-hidden rounded-xl p-1.5 shadow-panel"
+    <div
+      role="tablist"
+      aria-label="Provider configuration"
+      className="glass light-edge no-scrollbar flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-1"
+    >
+      {configs.map((c) => {
+        const isSelected = c.name === selected;
+        const notBuilt = !c.index_built;
+        return (
+          <button
+            key={c.name}
+            role="tab"
+            aria-selected={isSelected}
+            disabled={disabled || notBuilt}
+            onClick={() => !notBuilt && onSelect(c.name)}
+            title={notBuilt ? "Index not built yet" : c.label}
+            className={[
+              "group relative shrink-0 rounded-full px-3.5 py-1.5 transition-colors",
+              notBuilt ? "cursor-not-allowed" : "",
+              disabled && !isSelected ? "opacity-70" : "",
+            ].join(" ")}
           >
-            <p className="px-2.5 pb-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-faint">
-              Provider configuration
-            </p>
-            {configs.map((c) => {
-              const isSelected = c.name === selected;
-              const notBuilt = !c.index_built;
-              return (
-                <button
-                  key={c.name}
-                  type="button"
-                  disabled={notBuilt}
-                  title={notBuilt ? "Index not built yet" : undefined}
-                  onClick={() => {
-                    if (notBuilt) return;
-                    onSelect(c.name);
-                    setOpen(false);
-                  }}
-                  className={[
-                    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
-                    notBuilt
-                      ? "cursor-not-allowed opacity-45"
-                      : "hover:bg-white/5",
-                    isSelected ? "bg-white/[0.07]" : "",
-                  ].join(" ")}
-                >
-                  <StatusDot built={c.index_built} />
-                  <span className="flex-1 truncate text-sm text-ink">
-                    {c.label}
-                  </span>
-                  {notBuilt ? (
-                    <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-faint">
-                      not built
-                    </span>
-                  ) : isSelected ? (
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      className="text-accent2"
-                    >
-                      <path
-                        d="M5 13l4 4L19 7"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  ) : null}
-                </button>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* Sliding liquid-glass lens (the signature interaction) */}
+            {isSelected && (
+              <motion.span
+                layoutId="config-lens"
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                className="absolute inset-0 rounded-full bg-gradient-to-br from-accent/30 via-white/10 to-accent2/20 shadow-glow ring-1 ring-inset ring-white/25"
+              >
+                <span className="absolute inset-x-2 top-0.5 h-1/2 rounded-full bg-white/15 blur-[2px]" />
+              </motion.span>
+            )}
+            <span className="relative z-10 flex items-center gap-2">
+              <StatusDot built={c.index_built} />
+              <span
+                className={[
+                  "whitespace-nowrap text-[13px] font-medium transition-colors",
+                  isSelected
+                    ? "text-white"
+                    : notBuilt
+                      ? "text-faint"
+                      : "text-muted group-hover:text-ink",
+                ].join(" ")}
+              >
+                {shortLabel(c)}
+              </span>
+            </span>
+
+            {/* Tooltip for unbuilt indexes */}
+            {notBuilt && (
+              <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black/85 px-2.5 py-1 text-[11px] text-ink opacity-0 shadow-lg ring-1 ring-white/10 transition-opacity duration-150 group-hover:opacity-100">
+                Index not built yet
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

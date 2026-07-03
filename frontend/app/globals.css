@@ -9,26 +9,32 @@
   }
 
   body {
-    background-color: #070810;
-    color: #e9edf7;
+    background-color: #06070e;
+    color: #eef1fa;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
   ::selection {
-    background: rgba(139, 125, 255, 0.32);
+    background: rgba(120, 130, 255, 0.32);
     color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(120, 205, 255, 0.7);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
   /* Refined scrollbars */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
   }
   *::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
   }
   *::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
@@ -37,107 +43,148 @@
     background-clip: content-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.2);
     background-clip: content-box;
   }
 }
 
 @layer utilities {
-  /* Glassmorphism surfaces */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* --- Liquid Glass surfaces ---------------------------------------------
+     Two tiers: `.glass` is a light frosted chip for small interactive bits;
+     `.glass-panel` is a darker frosted sheet for large surfaces so body text
+     always keeps its contrast regardless of the color fields drifting behind. */
   .glass {
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.06),
-      rgba(255, 255, 255, 0.02)
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.028)
     );
-    backdrop-filter: blur(16px) saturate(150%);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 8px 30px -16px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
-  .glass-strong {
+
+  .glass-panel {
     background: linear-gradient(
       180deg,
-      rgba(22, 24, 44, 0.75),
-      rgba(9, 10, 20, 0.75)
+      rgba(21, 23, 40, 0.55),
+      rgba(9, 10, 20, 0.62)
     );
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(22px) saturate(135%);
+    -webkit-backdrop-filter: blur(22px) saturate(135%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow:
+      0 28px 70px -30px rgba(0, 0, 0, 0.8),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
-  /* Fine grid, faded toward the edges */
-  .bg-grid {
-    background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.6) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.6) 1px, transparent 1px);
-    background-size: 46px 46px;
-    -webkit-mask-image: radial-gradient(
-      ellipse 75% 55% at 50% 0%,
-      #000 30%,
-      transparent 100%
+  /* "Light catcher" gradient edge — a bright specular rim that fades away,
+     giving glass a physical, beveled quality. */
+  .light-edge {
+    position: relative;
+  }
+  .light-edge::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.6),
+      rgba(255, 255, 255, 0.08) 26%,
+      rgba(255, 255, 255, 0) 52%,
+      rgba(120, 205, 255, 0.14) 100%
     );
-    mask-image: radial-gradient(
-      ellipse 75% 55% at 50% 0%,
-      #000 30%,
-      transparent 100%
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Aurora display text — mostly light, with a violet→cyan tail. Kept legible
+     for large headings only. */
+  .text-aurora {
+    background: linear-gradient(
+      100deg,
+      #f3f5ff 0%,
+      #c6c2ff 42%,
+      #93ecff 82%
     );
-  }
-
-  /* Subtle film-grain noise */
-  .bg-noise {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-
-  .text-glow {
-    text-shadow: 0 0 26px rgba(139, 125, 255, 0.5);
-  }
-
-  /* Gradient accent text */
-  .text-gradient {
-    background: linear-gradient(100deg, #e9edf7 0%, #b6b0ff 45%, #7fe9ff 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  /* Streaming caret */
+  /* Streaming caret — a soft glowing lens that breathes, not a hard blink. */
   .caret::after {
     content: "";
     display: inline-block;
-    width: 0.5ch;
+    width: 0.4ch;
     height: 1.05em;
-    margin-left: 2px;
-    vertical-align: text-bottom;
-    background: #8b7dff;
-    border-radius: 1px;
-    box-shadow: 0 0 10px rgba(139, 125, 255, 0.8);
-    animation: caret-blink 1.05s steps(1) infinite;
+    margin-left: 3px;
+    vertical-align: -0.16em;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #8b7dff, #4fe3ff);
+    box-shadow: 0 0 12px rgba(79, 227, 255, 0.7);
+    animation: caret-pulse 1.2s ease-in-out infinite;
   }
 
-  /* Shimmering "thinking" text */
   .shimmer-text {
-    background: linear-gradient(
-      90deg,
-      #626a86 0%,
-      #eaeefb 50%,
-      #626a86 100%
-    );
+    background: linear-gradient(90deg, #6a728c 0%, #eef1fa 50%, #6a728c 100%);
     background-size: 200% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: shimmer 2.2s linear infinite;
+    animation: shimmer 2.4s linear infinite;
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.6) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(
+      ellipse 70% 55% at 50% 0%,
+      #000 25%,
+      transparent 100%
+    );
+    mask-image: radial-gradient(
+      ellipse 70% 55% at 50% 0%,
+      #000 25%,
+      transparent 100%
+    );
+  }
+
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }
 
-@keyframes caret-blink {
+@keyframes caret-pulse {
   0%,
-  50% {
-    opacity: 1;
-  }
-  50.01%,
   100% {
-    opacity: 0;
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scaleY(0.86);
   }
 }
 
@@ -150,10 +197,10 @@
   }
 }
 
-/* react-markdown content tuning inside assistant bubbles */
+/* Assistant markdown tuning */
 .md-body {
   font-size: 15px;
-  line-height: 1.65;
+  line-height: 1.68;
 }
 .md-body > :first-child {
   margin-top: 0;
@@ -165,4 +212,17 @@
   display: block;
   overflow-x: auto;
   white-space: nowrap;
+}
+
+/* Respect reduced-motion: silence CSS keyframes + smooth scroll. framer-motion
+   is separately gated via <MotionConfig reducedMotion="user">. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
