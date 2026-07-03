@@ -1,49 +1,120 @@
-"""Provider configuration definitions.
+"""Provider configuration definitions for the swappable RAG pipeline.
 
-Planned responsibilities:
+This module is the single source of truth for:
 
-- Enumerate the supported providers for chat and embeddings:
-  Google Gemini, OpenAI, Anthropic Claude, Perplexity, and local Ollama.
-- Declare per-provider settings: default model name(s), the environment
-  variable holding the API key, and default generation params (temperature,
-  max tokens, etc.).
-- Serve as the single source of truth that :mod:`config.factory` reads when
-  instantiating LLM and embedding clients.
+- :class:`Provider` — the supported model providers.
+- :class:`ProviderConfig` — a typed bundle of (chat model, embedding model,
+  generation params) for one pipeline configuration.
+- Module-level model ID constants (see the "Model IDs verified" block).
+- :data:`REGISTRY` — the named configurations this project evaluates.
 
-Note: concrete default model IDs are intentionally left unset in this scaffold
-and will be filled in when the pipeline is implemented.
+The ``provider`` field on a :class:`ProviderConfig` selects the **chat**
+provider. The **embedding** provider is resolved by :mod:`config.factory` from
+``embedding_model_id`` so a single config can mix providers (e.g. Gemini chat +
+OpenAI embeddings).
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
+
+
+# ---------------------------------------------------------------------------
+# Model IDs verified 2026-07-03 — update if deprecated
+# ---------------------------------------------------------------------------
+# Gemini
+GEMINI_CHAT = "gemini-2.5-pro"                # stable
+# Newest Gemini chat. Re-verify against current Google docs before a graded
+# run — model IDs drift. Swap GEMINI_CHAT -> GEMINI_CHAT_PREVIEW to opt in.
+GEMINI_CHAT_PREVIEW = "gemini-3.1-pro-preview"
+GEMINI_EMBED = "gemini-embedding-001"         # stable text embedding
+
+# OpenAI
+OPENAI_CHAT = "gpt-4o"
+OPENAI_EMBED = "text-embedding-3-large"
+
+# Anthropic
+# Re-verify against current Anthropic docs before a graded run — model IDs
+# drift. Not used by the 5 named configs below; kept for completeness.
+ANTHROPIC_CHAT = "claude-opus-4-1"
+
+# Ollama (local; no API key required)
+OLLAMA_CHAT = "llama3.1:8b"
+OLLAMA_EMBED = "nomic-embed-text"
 
 
 class Provider(str, Enum):
-    """Supported model providers."""
+    """Supported model providers (chat and/or embeddings)."""
 
-    GOOGLE = "google"
+    GEMINI = "gemini"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    PERPLEXITY = "perplexity"
     OLLAMA = "ollama"
+    PERPLEXITY = "perplexity"
 
 
 @dataclass(frozen=True)
 class ProviderConfig:
-    """Settings for a single provider.
+    """A single, swappable pipeline configuration.
 
-    Attributes (to be populated during implementation):
-        provider: which :class:`Provider` this config is for.
-        chat_model: default chat/completion model id.
-        embedding_model: default embedding model id (if supported).
-        api_key_env: name of the environment variable holding the API key.
+    Attributes:
+        provider: The **chat** provider. The embedding provider is inferred
+            from ``embedding_model_id`` by the factory.
+        chat_model_id: Model id passed to the chat client.
+        embedding_model_id: Model id passed to the embeddings client.
+        temperature: Sampling temperature for the chat model (default 0 for
+            deterministic, comparison-friendly answers).
+        max_tokens: Optional cap on generated tokens. ``None`` uses the
+            provider/client default.
     """
 
     provider: Provider
-    chat_model: str = ""
-    embedding_model: str = ""
-    api_key_env: str = ""
+    chat_model_id: str
+    embedding_model_id: str
+    temperature: float = 0.0
+    max_tokens: Optional[int] = None
 
 
-# Registry of provider defaults — to be filled in during implementation.
-PROVIDER_CONFIGS: dict = {}
+# ---------------------------------------------------------------------------
+# Named configurations evaluated by this project.
+# ---------------------------------------------------------------------------
+REGISTRY: dict[str, ProviderConfig] = {
+    "gemini_native": ProviderConfig(
+        provider=Provider.GEMINI,
+        chat_model_id=GEMINI_CHAT,
+        embedding_model_id=GEMINI_EMBED,
+    ),
+    "openai_native": ProviderConfig(
+        provider=Provider.OPENAI,
+        chat_model_id=OPENAI_CHAT,
+        embedding_model_id=OPENAI_EMBED,
+    ),
+    "gemini_llm_openai_embed": ProviderConfig(
+        provider=Provider.GEMINI,
+        chat_model_id=GEMINI_CHAT,
+        embedding_model_id=OPENAI_EMBED,
+    ),
+    "llama_local": ProviderConfig(
+        provider=Provider.OLLAMA,
+        chat_model_id=OLLAMA_CHAT,
+        embedding_model_id=OLLAMA_EMBED,
+    ),
+    "llama_gemini_embed": ProviderConfig(
+        provider=Provider.OLLAMA,
+        chat_model_id=OLLAMA_CHAT,
+        embedding_model_id=GEMINI_EMBED,
+    ),
+}
+
+
+def get_config(name: str) -> ProviderConfig:
+    """Look up a named config, with an actionable error for unknown names."""
+    try:
+        return REGISTRY[name]
+    except KeyError:
+        available = ", ".join(sorted(REGISTRY))
+        raise KeyError(
+            f"Unknown config '{name}'. Available configs: {available}."
+        ) from None
