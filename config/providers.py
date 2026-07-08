@@ -11,7 +11,7 @@ This module is the single source of truth for:
 The ``provider`` field on a :class:`ProviderConfig` selects the **chat**
 provider. The **embedding** provider is resolved by :mod:`config.factory` from
 ``embedding_model_id`` so a single config can mix providers (e.g. Gemini chat +
-OpenAI embeddings).
+Ollama embeddings).
 """
 
 from __future__ import annotations
@@ -86,15 +86,25 @@ REGISTRY: dict[str, ProviderConfig] = {
         chat_model_id=GEMINI_CHAT,
         embedding_model_id=GEMINI_EMBED,
     ),
-    "openai_native": ProviderConfig(
-        provider=Provider.OPENAI,
-        chat_model_id=OPENAI_CHAT,
-        embedding_model_id=OPENAI_EMBED,
-    ),
-    "gemini_llm_openai_embed": ProviderConfig(
+    # Gemini chat + Ollama nomic-embed-text embeddings. Isolates the embedding
+    # axis against gemini_native (same LLM, different embedding provider). The
+    # embedding provider is resolved from embedding_model_id, so OLLAMA_EMBED
+    # routes to Ollama even though the chat provider is Gemini.
+    "gemini_nomic_embed": ProviderConfig(
         provider=Provider.GEMINI,
         chat_model_id=GEMINI_CHAT,
-        embedding_model_id=OPENAI_EMBED,
+        embedding_model_id=OLLAMA_EMBED,
+    ),
+    # Identical to gemini_native. Chunk size/overlap are CLI flags, not config
+    # fields, so this config exists only to give a distinct namespaced index
+    # dir (see vectorstore.persist_dir_for). Build and query it with
+    # --chunk-size 500 --chunk-overlap 75, e.g.:
+    #   python scripts/build_index.py --config gemini_native_cs500 \
+    #       --chunk-size 500 --chunk-overlap 75
+    "gemini_native_cs500": ProviderConfig(
+        provider=Provider.GEMINI,
+        chat_model_id=GEMINI_CHAT,
+        embedding_model_id=GEMINI_EMBED,
     ),
     "llama_local": ProviderConfig(
         provider=Provider.OLLAMA,
