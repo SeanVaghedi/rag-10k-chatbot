@@ -22,12 +22,15 @@ from typing import Optional
 
 
 # ---------------------------------------------------------------------------
-# Model IDs verified 2026-07-03 — update if deprecated
+# Model IDs verified 2026-07-09 — update if deprecated
 # ---------------------------------------------------------------------------
 # Gemini
-GEMINI_CHAT = "gemini-2.5-pro"                # stable
-# Newest Gemini chat. Re-verify against current Google docs before a graded
-# run — model IDs drift. Swap GEMINI_CHAT -> GEMINI_CHAT_PREVIEW to opt in.
+# gemini-2.5-pro was retired (API now returns 404 "no longer available");
+# gemini-3.1-pro-preview is Google's official replacement and the current
+# Pro-tier model as of this update.
+GEMINI_CHAT = "gemini-3.1-pro-preview"
+# Now identical to GEMINI_CHAT (kept for the opt-in swap pattern). Re-verify
+# against current Google docs before a graded run — model IDs drift.
 GEMINI_CHAT_PREVIEW = "gemini-3.1-pro-preview"
 GEMINI_EMBED = "gemini-embedding-001"         # stable text embedding
 

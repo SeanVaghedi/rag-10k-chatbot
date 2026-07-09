@@ -1,0 +1,6 @@
+config,retrieval_k,total_questions_run,errors,number_total,number_passed,number_accuracy_pct,boundary_total,boundary_passed,boundary_accuracy_pct,comparison_total,qualitative_total,avg_key_facts_hit_pct,avg_latency_seconds,avg_latency_number,avg_latency_comparison,avg_latency_qualitative,avg_latency_boundary
+gemini_native,5,16,0,10,10,100.0,2,2,100.0,2,2,80.0,7.913,5.778,15.367,14.372,4.676
+gemini_nomic_embed,5,16,0,10,10,100.0,2,2,100.0,2,2,25.0,6.293,5.22,9.374,10.084,4.782
+gemini_native_cs500,5,16,0,10,10,100.0,2,2,100.0,2,2,53.3,7.773,6.181,14.094,12.558,4.628
+llama_local,5,16,0,10,7,70.0,2,2,100.0,2,2,35.0,1.465,1.188,2.825,1.74,1.215
+llama_gemini_embed,5,16,0,10,7,70.0,2,2,100.0,2,2,36.7,1.631,1.367,2.554,2.064,1.594
