@@ -5,7 +5,7 @@ over the FY2025 annual **10-K filings** of **Alphabet**, **Amazon**, and
 **Microsoft**. Every answer is citation-backed and links to the exact source
 page in the filing — opened in-app with the supporting passage highlighted.
 
-**Live demo:** [PLACEHOLDER — add deployed URL]
+**Live demo:** https://rag-10k-chatbot.vercel.app/
 
 Ask a cross-company question ("Which of the three has the largest cloud
 business, and what are the figures?") and get an answer grounded in the actual
