@@ -10,8 +10,10 @@ grading):
 
 - number   : pass if the expected figure or any accepted variant appears in the
              answer, after normalizing away ``$``, commas, and whitespace.
-- boundary : pass if the answer refuses / says the info is not in the filings
-             AND does not state a (fabricated) monetary figure.
+- boundary : pass if the answer says the requested info is not in the filings
+             (a refusal / unavailability statement). Historical figures quoted
+             for context do NOT fail it; only a fabricated projected/forecast
+             figure -- or no acknowledgement of unavailability at all -- fails.
 - comparison / qualitative : cannot be auto-graded reliably, so these are
              flagged ``needs_manual_review`` and only a ``key_facts`` hit-count
              is logged as a soft signal.
@@ -82,30 +84,45 @@ def normalize(text: str) -> str:
     return _NORM_STRIP_RE.sub("", (text or "").lower())
 
 
-# Refusal markers. Bare tokens ("not", "cannot") are word-boundary anchored so
-# they don't fire inside words like "another" or "note".
+# Refusal / unavailability markers — the answer signals the requested info is
+# not in the filings. Bare "not"/"cannot" are word-boundary anchored so they
+# don't fire inside words like "another" or "note". "cannot" is matched on its
+# own because \bnot\b does not fire inside it (no boundary before "not").
 _REFUSAL_RE = re.compile(
-    r"\bcannot\b"
-    r"|\bnot\b"
-    r"|does not contain"
-    r"|no information"
-    r"|not available"
-    r"|not include"
-    r"|not in the"
-    r"|unable to"
-    r"|do(?:es)? not (?:provide|mention|contain|include|specify|disclose|project)"
-    r"|not (?:mentioned|provided|disclosed|specified|present|found|projected)",
+    r"\bnot\b"  # covers "does not contain", "not available", "not projected", ...
+    r"|\bcannot\b"
+    r"|\bcan['’]?t\b"
+    r"|\bunable to\b"
+    # "no <unavailable-thing>", adjacent form: "no information", "no data", ...
+    r"|\bno\s+(?:information|data|figure|figures|mention|reference|record|"
+    r"estimate|estimates|disclosure)\b"
+    # "no ... projection/projected/forecast" allowing a qualifier in between, so
+    # "no projection", "no projected revenue", and "no 2027 projection" all hit.
+    r"|\bno\b(?:\s+\w+){0,4}?\s+(?:projection|projections|projected|forecast|forecasts)\b"
+    # contractions the bare \bnot\b anchor misses ("couldn't find", "doesn't mention")
+    r"|couldn['’]?t\s+(?:find|locate|identify)"
+    r"|could\s+not\s+(?:find|locate|identify)"
+    r"|do(?:es)?n['’]?t\s+(?:provide|mention|contain|include|specify|disclose|project)",
     re.IGNORECASE,
 )
 
-# A stated monetary / financial figure. Used to detect fabrication on boundary
-# questions (a correct refusal quotes no figure). Note: a refusal that also
-# quotes a real historical figure for context would be conservatively marked a
-# fail here — acceptable given temperature 0 and the grounded prompt.
-_FIGURE_RE = re.compile(
-    r"\$\s?\d"  # "$82,312", "$5"
-    r"|\d[\d,.]*\s*(?:million|billion|trillion)"  # "82.3 billion", "128,725 million"
-    r"|\b\d{1,3}(?:,\d{3})+\b",  # comma-grouped integer, e.g. "128,725"
+# A *fabricated forecast*: a projected / FY2027 value asserted as a dollar
+# figure, e.g. "projected 2027 revenue of $780,000 million" or "in 2027: $312
+# billion". This is the ONLY figure pattern that fails a boundary answer —
+# historical figures quoted for context are fine.
+#
+# The gap between the projection keyword and the "$" is capped at 40 characters,
+# stops at a sentence break ('.') or the next '$', and — crucially — must not
+# span a *historical* year (2010–2026). That last guard is what separates a real
+# forecast ("projected 2027 revenue of $X") from a correct refusal that cites a
+# historical number in the same breath ("no 2027 projection; FY2025 was $X"):
+# the intervening "2025" blocks the latter from matching. 2027 itself is allowed
+# in the gap so "projected FY2027 revenue ... $X" still matches. (No \b on the
+# year — it must also catch the year glued to a prefix, as in "FY2025".)
+_FORECAST_ASSERT_RE = re.compile(
+    r"(?:projected|projection|forecast(?:ed)?|2027)"
+    r"(?:(?!20(?:1\d|2[0-6]))[^.$\n]){0,40}"
+    r"\$\s?\d",
     re.IGNORECASE,
 )
 
@@ -121,10 +138,27 @@ def score_number(answer: str, figure: str, variants: List[str]) -> bool:
 
 
 def score_boundary(answer: str) -> bool:
-    """True if ``answer`` refuses AND states no (fabricated) figure."""
-    refused = bool(_REFUSAL_RE.search(answer or ""))
-    states_figure = bool(_FIGURE_RE.search(answer or ""))
-    return refused and not states_figure
+    """Score a boundary (should-refuse) answer.
+
+    The requested information is out of scope, so a correct answer acknowledges
+    it is not in the filings. Historical figures quoted for context are fine —
+    only a *fabricated* projected/forecast figure counts against the answer.
+
+    - PASS if a refusal / unavailability marker is present, even if historical
+      dollar figures also appear ("no projection ... FY2025 was $X").
+    - FAIL if the answer asserts a fabricated forecast (e.g. "projected 2027
+      revenue of $X"), even when a hedge is also present.
+    - FAIL if no refusal marker is present at all: it did not acknowledge the
+      info is unavailable — and if it also stated a figure, it answered the
+      unanswerable.
+    """
+    text = answer or ""
+    # A fabricated forecast fails outright, hedge or not.
+    if _FORECAST_ASSERT_RE.search(text):
+        return False
+    # Otherwise a clear refusal / unavailability statement passes; a bare figure
+    # for historical context does not matter.
+    return bool(_REFUSAL_RE.search(text))
 
 
 def count_key_facts(answer: str, key_facts: List[str]) -> Tuple[int, int]:
