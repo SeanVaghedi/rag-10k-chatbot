@@ -1,0 +1,37 @@
+# Railway upload/build exclusions for the FastAPI backend deploy.
+#
+# NOTE: when this file exists it takes the place of .gitignore for
+# `railway up` uploads — so secrets and cruft must be re-listed here.
+# The backend needs only: backend/, rag/, config/, scripts/, data/pdfs/,
+# requirements.txt, and the committed production FAISS index.
+
+# Secrets — never upload
+.env
+
+# Frontend is deployed separately (Vercel) — not part of this service
+frontend/
+node_modules/
+
+# Legacy Streamlit scaffold — unused by the backend
+app/
+
+# Evaluation harness + results — not needed at runtime
+eval/
+
+# Ship ONLY the production index; exclude the other evaluated indexes.
+# (Children are globbed so the production dir can be re-included — a parent
+# directory excluded outright cannot have contents negated back in.)
+.vectorstore/*
+!.vectorstore/gemini_native_cs1000_co150
+
+# Python cruft
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# OS / editor cruft
+.DS_Store
+.idea/
+.vscode/

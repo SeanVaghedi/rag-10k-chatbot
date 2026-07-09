@@ -23,3 +23,8 @@ tiktoken
 
 # Config / environment
 python-dotenv
+
+# Web API layer (FastAPI + uvicorn) — required to serve backend.main:app.
+# Chained here so a single `pip install -r requirements.txt` (and Railway's
+# Nixpacks build, which installs only this file) covers the full backend.
+-r backend/requirements.txt
