@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
  */
 
 const RUNNING_CONFIG: { label: string; value: string }[] = [
-  { label: "LLM", value: "Google Gemini 2.5 Pro" },
+  { label: "LLM", value: "Google Gemini 3.1 Pro (gemini-3.1-pro-preview)" },
   { label: "Embeddings", value: "gemini-embedding-001" },
   { label: "Vector store", value: "FAISS (local, similarity search)" },
   { label: "Chunk size / overlap", value: "1000 / 150 tokens" },
@@ -39,7 +39,7 @@ interface EvalRow {
 const EVAL_ROWS: EvalRow[] = [
   {
     config: "gemini_native",
-    llm: "Gemini 2.5 Pro",
+    llm: "Gemini 3.1 Pro",
     embeddings: "Gemini",
     chunk: "1000",
     number: "100%",
@@ -49,16 +49,16 @@ const EVAL_ROWS: EvalRow[] = [
   },
   {
     config: "gemini_nomic_embed",
-    llm: "Gemini 2.5 Pro",
+    llm: "Gemini 3.1 Pro",
     embeddings: "nomic (local)",
     chunk: "1000",
     number: "100%",
     boundary: "100%",
-    keyFacts: "35%",
+    keyFacts: "25%",
   },
   {
     config: "gemini_native_cs500",
-    llm: "Gemini 2.5 Pro",
+    llm: "Gemini 3.1 Pro",
     embeddings: "Gemini",
     chunk: "500",
     number: "100%",
@@ -70,7 +70,7 @@ const EVAL_ROWS: EvalRow[] = [
     llm: "Llama 3.1 8B",
     embeddings: "nomic (local)",
     chunk: "1000",
-    number: "80%",
+    number: "70%",
     boundary: "100%",
     keyFacts: "35%",
   },
@@ -79,17 +79,17 @@ const EVAL_ROWS: EvalRow[] = [
     llm: "Llama 3.1 8B",
     embeddings: "Gemini",
     chunk: "1000",
-    number: "80%",
+    number: "70%",
     boundary: "100%",
-    keyFacts: "53%",
+    keyFacts: "37%",
   },
 ];
 
 /** Key-facts hit-rate by retrieval depth (k sweep on gemini_native). */
 const K_SWEEP = [
   { k: 3, keyFacts: 43, selected: false },
-  { k: 5, keyFacts: 70, selected: true },
-  { k: 8, keyFacts: 70, selected: false },
+  { k: 5, keyFacts: 80, selected: true },
+  { k: 8, keyFacts: 80, selected: false },
 ];
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -286,8 +286,9 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
               </table>
             </div>
             <p className="mt-2.5 px-1 text-[12px] leading-relaxed text-muted">
-              gemini_native selected: highest number accuracy and retrieval
-              richness; k=5 optimal by sweep (k=3→43%, k=5/8→70% key-facts).
+              gemini_native selected: 100% number and boundary accuracy with
+              the richest retrieval; k=5 optimal by sweep (k=3→43%, k=5/8→80%
+              key-facts).
             </p>
           </section>
 
@@ -327,9 +328,8 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
               <p className="pt-1 text-[12px] leading-relaxed text-muted">
-                Key-facts hit-rate by retrieval depth. k=5 matches k=8 on
-                accuracy at the lowest latency — deeper retrieval added
-                context, not signal.
+                Key-facts hit-rate by retrieval depth. k=5 chosen for equal
+                richness to k=8 at lower latency and cost.
               </p>
             </div>
           </section>

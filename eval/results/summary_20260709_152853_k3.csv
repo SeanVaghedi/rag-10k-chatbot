@@ -1,0 +1,2 @@
+config,retrieval_k,total_questions_run,errors,number_total,number_passed,number_accuracy_pct,boundary_total,boundary_passed,boundary_accuracy_pct,comparison_total,qualitative_total,avg_key_facts_hit_pct,avg_latency_seconds,avg_latency_number,avg_latency_comparison,avg_latency_qualitative,avg_latency_boundary
+gemini_native,3,16,0,10,10,100.0,2,2,100.0,2,2,43.3,6.506,4.928,10.239,12.263,4.906

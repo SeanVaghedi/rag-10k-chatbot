@@ -36,7 +36,7 @@ backend (FastAPI)
    ▼
 RAG pipeline (LangChain)
    load PDFs → token-aware chunking → embeddings → FAISS → top-k retrieval
-   → grounded prompt → Gemini 2.5 Pro → cited answer + source metadata
+   → grounded prompt → Gemini 3.1 Pro → cited answer + source metadata
 ```
 
 - **Backend** — FastAPI with streaming and non-streaming Q&A endpoints, a config listing, and a static route serving the source PDFs to the viewer. Persisted FAISS indexes are loaded on demand per config and kept in a warm cache.
@@ -51,7 +51,7 @@ RAG pipeline (LangChain)
 | Embeddings | **Google `gemini-embedding-001`** (production); local `nomic-embed-text` via Ollama also supported (`config/factory.py`) |
 | Vector store | **FAISS**, persisted to disk and namespaced by config name + chunk params; embedding builds are batched with throttling and exponential-backoff retry for rate limits (`rag/vectorstore.py`) |
 | Retrieval | Similarity search, **top k=5** — selected via a k-sweep (`rag/retrieval.py`) |
-| LLM | **Google Gemini 2.5 Pro** (production); Llama 3.1 8B via Ollama also supported |
+| LLM | **Google Gemini 3.1 Pro (`gemini-3.1-pro-preview`)** (production); Llama 3.1 8B via Ollama also supported |
 
 The chat and embedding models are selected by **named config** through a
 provider-agnostic factory (`config/providers.py`, `config/factory.py`), making
@@ -59,8 +59,9 @@ each of the five evaluated configurations a one-line change.
 
 ## Production configuration
 
-**Gemini 2.5 Pro + Gemini embeddings + 1000-token chunks + k=5** — every
-setting justified by evaluation, not defaults.
+**Gemini 3.1 Pro (`gemini-3.1-pro-preview`) + `gemini-embedding-001` +
+1000-token chunks (150 overlap) + k=5** — every setting justified by
+evaluation, not defaults.
 
 ## Evaluation
 
@@ -83,17 +84,18 @@ re-spending API calls.
 
 | Config | LLM | Embeddings | Chunk | Number acc | Boundary acc | Key-facts |
 |---|---|---|---|---|---|---|
-| **`gemini_native`** ← selected | Gemini 2.5 Pro | Gemini | 1000 | **100%** | **100%** | **80%** |
-| `gemini_nomic_embed` | Gemini 2.5 Pro | nomic (local) | 1000 | 100% | 100% | 35% |
-| `gemini_native_cs500` | Gemini 2.5 Pro | Gemini | 500 | 100% | 100% | 53% |
-| `llama_local` | Llama 3.1 8B | nomic (local) | 1000 | 80% | 100% | 35% |
-| `llama_gemini_embed` | Llama 3.1 8B | Gemini | 1000 | 80% | 100% | 53% |
+| **`gemini_native`** ← selected | Gemini 3.1 Pro | Gemini | 1000 | **100%** | **100%** | **80%** |
+| `gemini_nomic_embed` | Gemini 3.1 Pro | nomic (local) | 1000 | 100% | 100% | 25% |
+| `gemini_native_cs500` | Gemini 3.1 Pro | Gemini | 500 | 100% | 100% | 53% |
+| `llama_local` | Llama 3.1 8B | nomic (local) | 1000 | 70% | 100% | 35% |
+| `llama_gemini_embed` | Llama 3.1 8B | Gemini | 1000 | 70% | 100% | 37% |
 
-`gemini_native` achieved 100% number accuracy, 100% boundary accuracy, and the
-highest retrieval richness. The local Llama configs scored 80% on number
-accuracy, failing the multi-year-table disambiguation questions. A retrieval
-depth sweep (`--k`) found k=3 → 43%, k=5 → 70%, k=8 → 70% key-facts hit-rate,
-with latency lowest at k=5.
+`gemini_native` achieved 100% number accuracy, 100% boundary accuracy, and 80%
+key-facts — the richest retrieval. The local Llama configs scored 70% on number
+accuracy, failing the multi-year-table disambiguation questions, and Gemini
+embeddings strongly outperformed local nomic embeddings on retrieval richness
+(80% vs 25% key-facts). A retrieval depth sweep (`--k`) found k=3 → 43%,
+k=5 → 70%, k=8 → 70% key-facts hit-rate, with latency lowest at k=5.
 
 ## Project structure
 
