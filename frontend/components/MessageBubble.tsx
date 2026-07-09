@@ -15,9 +15,21 @@ function AssistantMark() {
   );
 }
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({
+  message,
+  selected,
+  onSelectSources,
+}: {
+  message: ChatMessage;
+  /** True when the sources panel is showing this answer's sources. */
+  selected?: boolean;
+  /** Selects this answer's sources into the panel (via the badge). */
+  onSelectSources?: () => void;
+}) {
   const isUser = message.role === "user";
   const showThinking = message.streaming && !message.content && !message.error;
+  const sourceCount = message.sources?.length ?? 0;
+  const showBadge = !isUser && !message.error && sourceCount > 0;
 
   return (
     <motion.div
@@ -30,12 +42,14 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
       <div
         className={[
-          "light-edge max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed",
+          "light-edge max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed transition-shadow duration-500",
           isUser
             ? "bg-gradient-to-br from-accent/22 to-accent2/12 text-ink shadow-[0_10px_36px_-16px_rgba(139,125,255,0.55)]"
             : message.error
               ? "glass text-ink ring-1 ring-inset ring-rose-400/30"
-              : "glass text-ink",
+              : selected
+                ? "glass text-ink ring-1 ring-inset ring-accent/40 shadow-[0_0_38px_-14px_rgba(139,125,255,0.65)]"
+                : "glass text-ink",
         ].join(" ")}
       >
         {isUser ? (
@@ -53,6 +67,37 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
               <Markdown>{message.content}</Markdown>
             )}
           </div>
+        )}
+
+        {/* Sources badge — selects this answer's sources into the panel. */}
+        {showBadge && (
+          <motion.button
+            type="button"
+            onClick={onSelectSources}
+            aria-pressed={selected}
+            aria-label={`Show the ${sourceCount} source${
+              sourceCount === 1 ? "" : "s"
+            } for this answer`}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
+            className={[
+              "mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] transition-colors",
+              selected
+                ? "bg-accent/15 text-accent2 ring-1 ring-inset ring-accent/35"
+                : "bg-white/5 text-muted ring-1 ring-inset ring-white/10 hover:bg-white/10 hover:text-ink",
+            ].join(" ")}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M4 6h16M4 12h16M4 18h10"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+            {sourceCount} source{sourceCount === 1 ? "" : "s"}
+          </motion.button>
         )}
       </div>
     </motion.div>

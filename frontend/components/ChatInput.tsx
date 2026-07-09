@@ -42,7 +42,7 @@ export function ChatInput({
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <div className="glass light-edge relative flex items-end gap-2 rounded-2xl p-2 transition-shadow focus-within:shadow-glow-cyan">
+      <div className="glass light-edge relative flex items-end gap-2 rounded-2xl p-2 transition-shadow focus-within:shadow-glow-cyan focus-within:ring-1 focus-within:ring-inset focus-within:ring-accent2/25">
         <textarea
           ref={textareaRef}
           rows={1}

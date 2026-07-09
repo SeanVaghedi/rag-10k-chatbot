@@ -3,11 +3,12 @@
 import { motion } from "framer-motion";
 
 /**
- * Calm ambient backdrop: two slow, softly-drifting aurora fields beneath a
- * faint structural grid and a whisper of grain. Deliberately low-contrast so it
- * reads as depth, never as decoration competing with the glass surfaces.
- * Motion loops are transform-only and are frozen under reduced-motion via the
- * app-level <MotionConfig reducedMotion="user">.
+ * Calm ambient backdrop: three slow, softly-drifting aurora fields — one per
+ * filing in the corpus (iris, cyan, mint) — beneath a faint structural grid
+ * and a whisper of grain. Deliberately low-contrast so it reads as depth,
+ * never as decoration competing with the glass surfaces. Motion loops are
+ * transform-only and are frozen under reduced-motion via the app-level
+ * <MotionConfig reducedMotion="user">.
  */
 export function Background() {
   return (
@@ -26,6 +27,11 @@ export function Background() {
         className="absolute bottom-[-18%] right-[-8%] h-[54vh] w-[54vh] rounded-full bg-[#12c8ff]/14 blur-[150px]"
         animate={{ x: [0, -60, 0], y: [0, 34, 0], scale: [1.05, 1, 1.05] }}
         transition={{ duration: 34, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute bottom-[-14%] left-[-10%] h-[46vh] w-[46vh] rounded-full bg-[#86ffd0]/[0.07] blur-[150px]"
+        animate={{ x: [0, 44, 0], y: [0, -26, 0], scale: [1, 1.08, 1] }}
+        transition={{ duration: 41, repeat: Infinity, ease: "easeInOut" }}
       />
 
       <div className="bg-grid absolute inset-0 opacity-[0.04]" />

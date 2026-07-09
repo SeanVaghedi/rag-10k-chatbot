@@ -7,7 +7,7 @@ import type { ChatMessage, ConfigInfo, Source } from "@/lib/types";
 import { fetchConfigs, streamAsk } from "@/lib/api";
 import { Background } from "./Background";
 import { Header } from "./Header";
-import { ConfigSwitcher } from "./ConfigSwitcher";
+import { ModelConfigPanel, ModelConfigsButton } from "./ModelConfigPanel";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { SourcesPanel } from "./SourcesPanel";
@@ -25,40 +25,45 @@ const EXAMPLE_QUESTIONS = [
   "How do R&D expenses compare between the three companies?",
 ];
 
-const DEFAULT_CONFIG = "gemini_native";
+/** The one production configuration this product runs. The header's
+ * "Model & Configs" panel documents it (and the eval that chose it) — it is
+ * informational, not a switcher. */
+const PRODUCTION_CONFIG = "gemini_native";
+
+/** Stable empty array so the panel's "new sources" identity check doesn't
+ * see a fresh [] on every render while nothing is selected. */
+const EMPTY_SOURCES: Source[] = [];
 
 export default function ChatApp() {
   const [configs, setConfigs] = useState<ConfigInfo[]>([]);
-  const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
-  const [selected, setSelected] = useState(DEFAULT_CONFIG);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [configPanelOpen, setConfigPanelOpen] = useState(false);
   const [activeSource, setActiveSource] = useState<Source | null>(null);
+  /** Which assistant message the sources panel is showing. Newest answer
+   * takes over automatically; badge clicks select older answers. */
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
+    null,
+  );
 
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Still probe /configs on load: it doubles as the backend health check and
+  // tells us whether the production index has been built.
   const loadConfigs = useCallback(async () => {
-    setConfigLoading(true);
     setConfigError(null);
     try {
       const list = await fetchConfigs();
       setConfigs(list);
-      setSelected((prev) => {
-        if (list.some((c) => c.name === prev)) return prev;
-        const firstBuilt = list.find((c) => c.index_built);
-        return firstBuilt?.name ?? list[0]?.name ?? prev;
-      });
     } catch (e) {
       setConfigError(
         e instanceof Error ? e.message : "Could not reach the backend.",
       );
-    } finally {
-      setConfigLoading(false);
     }
   }, []);
 
@@ -75,25 +80,37 @@ export default function ChatApp() {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const selectedInfo = configs.find((c) => c.name === selected);
+  const selectedInfo = configs.find((c) => c.name === PRODUCTION_CONFIG);
   const indexMissing = !!selectedInfo && !selectedInfo.index_built;
 
-  const latestSources = useMemo<Source[]>(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m.role === "assistant" && m.sources && m.sources.length > 0) {
-        return m.sources;
-      }
+  // The panel mirrors the selected answer. Its sources array reference is
+  // stable across token patches, so the panel's entrance choreography replays
+  // exactly when the selection (or a new answer) changes it.
+  const selectedMessage = useMemo(
+    () => messages.find((m) => m.id === selectedMessageId) ?? null,
+    [messages, selectedMessageId],
+  );
+  const panelSources = selectedMessage?.sources ?? EMPTY_SOURCES;
+  const panelQuestion = selectedMessage?.question ?? null;
+
+  /** Select an answer's sources (via its badge). On narrow viewports the
+   * side panel lives in the drawer, so surface it there too. */
+  const selectSources = useCallback((id: string) => {
+    setSelectedMessageId(id);
+    if (
+      typeof window !== "undefined" &&
+      !window.matchMedia("(min-width: 1024px)").matches
+    ) {
+      setDrawerOpen(true);
     }
-    return [];
-  }, [messages]);
+  }, []);
 
   const blocked = isStreaming || configError !== null || indexMissing;
 
   const inputHint = configError
     ? "Backend unavailable — is it running on :8000?"
     : indexMissing
-      ? `Index not built for "${selectedInfo?.label}". Run: python scripts/build_index.py --config ${selected}`
+      ? `Index not built for "${selectedInfo?.label}". Run: python scripts/build_index.py --config ${PRODUCTION_CONFIG}`
       : null;
 
   const send = useCallback(
@@ -105,7 +122,13 @@ export default function ChatApp() {
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: "user", content: q },
-        { id: assistantId, role: "assistant", content: "", streaming: true },
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          streaming: true,
+          question: q,
+        },
       ]);
       setInput("");
       setIsStreaming(true);
@@ -121,10 +144,16 @@ export default function ChatApp() {
       try {
         await streamAsk(
           q,
-          selected,
+          PRODUCTION_CONFIG,
           {
             onToken: (t) => patch((m) => ({ ...m, content: m.content + t })),
-            onSources: (s) => patch((m) => ({ ...m, sources: s })),
+            onSources: (s) => {
+              patch((m) => ({ ...m, sources: s }));
+              // Newest answer takes over the panel — regardless of what was
+              // selected. (An answer citing nothing keeps the prior selection:
+              // it renders no badge, so it could never be re-selected.)
+              if (s.length > 0) setSelectedMessageId(assistantId);
+            },
             onError: (msg) =>
               patch((m) => ({
                 ...m,
@@ -150,7 +179,7 @@ export default function ChatApp() {
         abortRef.current = null;
       }
     },
-    [input, isStreaming, selected, configError, indexMissing],
+    [input, isStreaming, configError, indexMissing],
   );
 
   const openSource = useCallback((s: Source) => {
@@ -166,15 +195,7 @@ export default function ChatApp() {
         <Background />
 
         <Header>
-          <div className="min-w-0 flex-1 sm:flex-none">
-            <ConfigSwitcher
-              configs={configs}
-              selected={selected}
-              onSelect={setSelected}
-              disabled={isStreaming}
-              loading={configLoading}
-            />
-          </div>
+          <ModelConfigsButton onClick={() => setConfigPanelOpen(true)} />
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
@@ -189,9 +210,9 @@ export default function ChatApp() {
                 strokeLinecap="round"
               />
             </svg>
-            {latestSources.length > 0 && (
+            {panelSources.length > 0 && (
               <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 font-mono text-[10px] text-[#080a16]">
-                {latestSources.length}
+                {panelSources.length}
               </span>
             )}
           </button>
@@ -225,7 +246,12 @@ export default function ChatApp() {
               ) : (
                 <div className="mx-auto flex max-w-3xl flex-col gap-5">
                   {messages.map((m) => (
-                    <MessageBubble key={m.id} message={m} />
+                    <MessageBubble
+                      key={m.id}
+                      message={m}
+                      selected={m.id === selectedMessageId}
+                      onSelectSources={() => selectSources(m.id)}
+                    />
                   ))}
                 </div>
               )}
@@ -241,7 +267,7 @@ export default function ChatApp() {
                 hint={inputHint}
                 placeholder={
                   indexMissing
-                    ? "Select a config whose index is built…"
+                    ? "Build the index to start asking…"
                     : "Ask about the filings…"
                 }
               />
@@ -250,7 +276,11 @@ export default function ChatApp() {
 
           {/* Sources — secondary bento cell (desktop) */}
           <aside className="glass-panel light-edge hidden w-[358px] shrink-0 flex-col rounded-3xl p-5 lg:flex">
-            <SourcesPanel sources={latestSources} onOpenSource={openSource} />
+            <SourcesPanel
+              sources={panelSources}
+              question={panelQuestion}
+              onOpenSource={openSource}
+            />
           </aside>
         </main>
 
@@ -291,12 +321,23 @@ export default function ChatApp() {
                 </div>
                 <div className="min-h-0 flex-1">
                   <SourcesPanel
-                    sources={latestSources}
+                    sources={panelSources}
+                    question={panelQuestion}
                     onOpenSource={openSource}
                   />
                 </div>
               </motion.aside>
             </>
+          )}
+        </AnimatePresence>
+
+        {/* Model & Configuration panel (informational — not a switcher) */}
+        <AnimatePresence>
+          {configPanelOpen && (
+            <ModelConfigPanel
+              key="model-config"
+              onClose={() => setConfigPanelOpen(false)}
+            />
           )}
         </AnimatePresence>
 
@@ -359,7 +400,7 @@ function EmptyState({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 + i * 0.07, type: "spring", stiffness: 260, damping: 26 }}
             whileHover={disabled ? undefined : { y: -3 }}
-            className="glass light-edge group rounded-xl px-4 py-3 text-left text-sm text-ink/90 transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+            className="glass light-edge sheen group relative overflow-hidden rounded-xl px-4 py-3 text-left text-sm text-ink/90 transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="mr-2 font-mono text-accent2/80 transition-transform group-hover:translate-x-0.5">
               →
