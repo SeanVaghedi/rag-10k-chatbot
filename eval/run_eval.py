@@ -25,11 +25,16 @@ Usage:
     python eval/run_eval.py                                     # all configs
     python eval/run_eval.py --config gemini_native             # a single config
     python eval/run_eval.py --configs gemini_native,llama_local   # a subset
+    python eval/run_eval.py --config gemini_native --k 8       # sweep retrieval depth
 
-Outputs (in eval/results/):
-    results_<timestamp>.csv    one row per (config, question) with scores.
-    summary_<timestamp>.csv    per-config aggregate metrics.
-    results_<timestamp>.jsonl  full records incl. retrieved source chunks.
+``--k`` overrides how many chunks the retriever returns for this run only (a
+retrieval-depth sweep, e.g. k=3 / 5 / 8). It does NOT change the production
+default (RagPipeline / build_retriever still default to k=5).
+
+Outputs (in eval/results/, tagged with the retrieval depth ``k``):
+    results_<timestamp>_k<k>.csv   one row per (config, question) with scores.
+    summary_<timestamp>_k<k>.csv   per-config aggregate metrics (incl. retrieval_k).
+    results_<timestamp>_k<k>.jsonl full records incl. retrieved source chunks.
 """
 
 from __future__ import annotations
@@ -62,6 +67,12 @@ DEFAULT_CHUNK_OVERLAP = 150
 CHUNK_PARAMS_OVERRIDE: Dict[str, Tuple[int, int]] = {
     "gemini_native_cs500": (500, 75),
 }
+
+# Retrieval depth (chunks retrieved per question). Mirrors the RagPipeline /
+# build_retriever default (k=5); used only to label runs and as the value passed
+# when --k is omitted. Override per eval run with --k to compare retrieval depth
+# without touching the production default.
+DEFAULT_K = 5
 
 
 def chunk_params_for(config_name: str) -> Tuple[int, int]:
@@ -249,8 +260,13 @@ def _status(record: Dict) -> str:
 # ---------------------------------------------------------------------------
 # Aggregation
 # ---------------------------------------------------------------------------
-def summarize(config_name: str, rows: List[Dict]) -> Dict:
-    """Compute per-config aggregate metrics from that config's rows."""
+def summarize(config_name: str, rows: List[Dict], k: Optional[int] = None) -> Dict:
+    """Compute per-config aggregate metrics from that config's rows.
+
+    ``k`` is the retrieval depth used for the run; it is recorded on the summary
+    so different --k sweeps are self-labeled. Left ``None`` by callers that do
+    not track k (e.g. re-scoring an existing run).
+    """
 
     def ok(row: Dict) -> bool:
         return not row["error"]
@@ -285,6 +301,7 @@ def summarize(config_name: str, rows: List[Dict]) -> Dict:
 
     return {
         "config": config_name,
+        "retrieval_k": k,
         "total_questions_run": sum(1 for r in rows if ok(r)),
         "errors": sum(1 for r in rows if r["error"]),
         "number_total": number_total,
@@ -321,6 +338,7 @@ def _format_sources(sources: List[Dict]) -> str:
 
 _RESULTS_COLUMNS = [
     "config",
+    "retrieval_k",
     "question_id",
     "category",
     "question",
@@ -337,6 +355,7 @@ _RESULTS_COLUMNS = [
 
 _SUMMARY_COLUMNS = [
     "config",
+    "retrieval_k",
     "total_questions_run",
     "errors",
     "number_total",
@@ -368,6 +387,9 @@ def write_results_csv(path: Path, rows: List[Dict]) -> None:
             writer.writerow(
                 {
                     "config": r["config"],
+                    # .get so rows from callers that don't track k (re-scoring)
+                    # still write cleanly as a blank cell.
+                    "retrieval_k": _blank_if_none(r.get("retrieval_k")),
                     "question_id": r["question_id"],
                     "category": r["category"],
                     "question": r["question"],
@@ -407,12 +429,14 @@ def print_summary_table(summaries: List[Dict], skipped: List[Tuple[str, str]]) -
         return "n/a" if value is None else f"{value:.2f}s"
 
     header = (
-        f"{'Config':24} {'NumAcc':>7} {'BndAcc':>7} {'KFhit':>6} "
+        f"{'Config':24} {'k':>3} {'NumAcc':>7} {'BndAcc':>7} {'KFhit':>6} "
         f"{'AvgLat':>8}  {'Lat n/c/q/b':<20} {'Run':>4} {'Err':>4}"
     )
     print(header)
     print("-" * len(header))
     for s in summaries:
+        kval = s.get("retrieval_k")
+        kstr = "-" if kval is None else str(kval)
         lat_by_cat = "/".join(
             "-" if s[key] is None else f"{s[key]:.1f}"
             for key in (
@@ -424,6 +448,7 @@ def print_summary_table(summaries: List[Dict], skipped: List[Tuple[str, str]]) -
         )
         print(
             f"{s['config']:24} "
+            f"{kstr:>3} "
             f"{pct(s['number_accuracy_pct']):>7} "
             f"{pct(s['boundary_accuracy_pct']):>7} "
             f"{pct(s['avg_key_facts_hit_pct']):>6} "
@@ -451,6 +476,18 @@ def parse_args() -> argparse.Namespace:
         "--configs",
         help="Run a comma-separated subset (e.g. gemini_native,llama_local).",
     )
+    parser.add_argument(
+        "--k",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Retrieval depth: retrieve N chunks per question for this run, "
+            f"overriding the default (k={DEFAULT_K}). Use to compare retrieval "
+            "depth, e.g. --k 3 / --k 5 / --k 8. Does not change the production "
+            "default."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -475,31 +512,34 @@ def resolve_configs(args: argparse.Namespace) -> List[str]:
     return known
 
 
-def build_pipeline(config_name: str) -> RagPipeline:
+def build_pipeline(config_name: str, k: int) -> RagPipeline:
     chunk_size, chunk_overlap = chunk_params_for(config_name)
     return RagPipeline(
         config_name=config_name,
+        k=k,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
     )
 
 
-def run_config(config_name: str, index: int, total_configs: int) -> Optional[List[Dict]]:
-    """Run the whole gold set against one config.
+def run_config(
+    config_name: str, index: int, total_configs: int, k: int
+) -> Optional[List[Dict]]:
+    """Run the whole gold set against one config at retrieval depth ``k``.
 
-    Returns the list of result rows, or ``None`` if the config was skipped
-    because its index has not been built yet.
+    Returns the list of result rows (each stamped with ``retrieval_k``), or
+    ``None`` if the config was skipped because its index has not been built yet.
     """
     chunk_size, chunk_overlap = chunk_params_for(config_name)
     print(
         f"=== Config {index}/{total_configs}: {config_name} "
-        f"(chunk_size={chunk_size}, chunk_overlap={chunk_overlap}) ==="
+        f"(k={k}, chunk_size={chunk_size}, chunk_overlap={chunk_overlap}) ==="
     )
 
     init_error = ""
     pipeline: Optional[RagPipeline] = None
     try:
-        pipeline = build_pipeline(config_name)
+        pipeline = build_pipeline(config_name, k)
     except FileNotFoundError as exc:
         print(f"  SKIP: index not built for '{config_name}'.")
         print(f"        {exc}\n")
@@ -513,23 +553,29 @@ def run_config(config_name: str, index: int, total_configs: int) -> Optional[Lis
     rows: List[Dict] = []
     for q_index, question in enumerate(GOLD_SET, start=1):
         if init_error:
-            rows.append(_score_record(config_name, question, "", [], 0.0, init_error))
-            continue
-        print(
-            f"  Running {config_name} ({index}/{total_configs}): "
-            f"question {q_index}/{num_questions} [{question['id']}] ...",
-            end="",
-            flush=True,
-        )
-        record = run_question(pipeline, config_name, question)
+            record = _score_record(config_name, question, "", [], 0.0, init_error)
+        else:
+            print(
+                f"  Running {config_name} ({index}/{total_configs}): "
+                f"question {q_index}/{num_questions} [{question['id']}] ...",
+                end="",
+                flush=True,
+            )
+            record = run_question(pipeline, config_name, question)
+            print(f" {_status(record)}  ({record['latency_seconds']:.2f}s)")
+        record["retrieval_k"] = k
         rows.append(record)
-        print(f" {_status(record)}  ({record['latency_seconds']:.2f}s)")
     print()
     return rows
 
 
 def main() -> None:
     args = parse_args()
+    if args.k is not None and args.k < 1:
+        print(f"Invalid --k {args.k}: retrieval depth must be a positive integer.")
+        return
+    k = args.k if args.k is not None else DEFAULT_K
+
     configs = resolve_configs(args)
     if not configs:
         print("No valid configs to run. Exiting.")
@@ -540,7 +586,7 @@ def main() -> None:
 
     total_configs = len(configs)
     print(
-        f"Gold set: {len(GOLD_SET)} questions | "
+        f"Gold set: {len(GOLD_SET)} questions | retrieval k={k} | "
         f"Configs to run ({total_configs}): {', '.join(configs)}\n"
     )
 
@@ -549,17 +595,19 @@ def main() -> None:
     skipped: List[Tuple[str, str]] = []
 
     for index, config_name in enumerate(configs, start=1):
-        rows = run_config(config_name, index, total_configs)
+        rows = run_config(config_name, index, total_configs, k)
         if rows is None:
             skipped.append((config_name, "index not built"))
             continue
         all_rows.extend(rows)
-        summaries.append(summarize(config_name, rows))
+        summaries.append(summarize(config_name, rows, k))
 
     # Write outputs even if partial, so a long/interrupted run still logs data.
-    results_csv = RESULTS_DIR / f"results_{timestamp}.csv"
-    summary_csv = RESULTS_DIR / f"summary_{timestamp}.csv"
-    results_jsonl = RESULTS_DIR / f"results_{timestamp}.jsonl"
+    # Filenames carry the retrieval depth so different --k runs don't overwrite
+    # each other and are clearly labeled.
+    results_csv = RESULTS_DIR / f"results_{timestamp}_k{k}.csv"
+    summary_csv = RESULTS_DIR / f"summary_{timestamp}_k{k}.csv"
+    results_jsonl = RESULTS_DIR / f"results_{timestamp}_k{k}.jsonl"
 
     if all_rows:
         write_results_csv(results_csv, all_rows)
@@ -568,7 +616,7 @@ def main() -> None:
         write_summary_csv(summary_csv, summaries)
 
     print("=" * 78)
-    print(f"EVAL SUMMARY  ({timestamp})")
+    print(f"EVAL SUMMARY  ({timestamp}, retrieval k={k})")
     print("=" * 78)
     if summaries or skipped:
         print_summary_table(summaries, skipped)
