@@ -10,6 +10,11 @@ grading):
 
 - number   : pass if the expected figure or any accepted variant appears in the
              answer, after normalizing away ``$``, commas, and whitespace.
+- calculation : pass if the answer states a number within tolerance of the
+             expected computed value — within +/-0.3 percentage points for
+             percents (only numbers marked with %/percent are considered),
+             within +/-1% for dollar amounts (bare numbers and "$X million"
+             read as millions, "$X billion" as thousands of millions).
 - boundary : pass if the answer says the requested info is not in the filings
              (a refusal / unavailability statement). Historical figures quoted
              for context do NOT fail it; only a fabricated projected/forecast
@@ -189,6 +194,72 @@ def score_boundary(answer: str) -> bool:
     return bool(_REFUSAL_RE.search(text))
 
 
+# --- calculation scoring -----------------------------------------------------
+# Tolerances: percents pass within +/-0.3 percentage points of the expected
+# value (inclusive, so 19.7% accepts 19.4-20.0); dollar amounts pass within
+# +/-1% relative (which subsumes an exact match).
+_CALC_PERCENT_TOL_PP = 0.3
+_CALC_DOLLAR_REL_TOL = 0.01
+# Float-noise guard so the inclusive boundary holds (20.0 - 19.7 is
+# 0.30000000000000071 in floats, which must still pass the 0.3pp tolerance).
+_CALC_EPSILON = 1e-9
+
+# A number explicitly marked as a percentage: "19.7%", "19.7 percent",
+# "0.5 percentage points". Digit-first so a stray comma can't match alone.
+_CALC_PERCENT_RE = re.compile(
+    r"(\d[\d,]*(?:\.\d+)?)\s*(?:%|percent\b|percentage\s+points?\b)",
+    re.IGNORECASE,
+)
+
+# A (possibly dollar-)amount with an optional scale word: "$78,965 million",
+# "78,965", "$79.0 billion", "$19.1B", "19,095M".
+_CALC_AMOUNT_RE = re.compile(
+    r"\$?\s*(\d[\d,]*(?:\.\d+)?)\s*(billion|million|bn|mn|[bm]\b)?",
+    re.IGNORECASE,
+)
+
+_BILLION_UNITS = ("billion", "bn", "b")
+
+
+def _to_float(number_text: str) -> float:
+    return float(number_text.replace(",", ""))
+
+
+def score_calculation(answer: str, expected: Dict) -> bool:
+    """Score a computed/derived-figure answer against a numeric tolerance.
+
+    ``expected`` carries ``value`` and ``answer_type`` ("percent" or
+    "dollars_millions"). Percent answers are matched only against numbers the
+    answer explicitly marks as percentages, so a dollar figure like "$19.7
+    billion" can never satisfy an expected 19.7%. Dollar answers are matched
+    against every non-percent number, normalized to millions (bare numbers and
+    "million"-scaled read as millions; "billion"-scaled multiplied by 1,000),
+    so "$78,965 million", "78,965", and "$79.0 billion" all pass for 78,965.
+    """
+    value = expected.get("value")
+    if value is None or not answer:
+        return False
+
+    if expected.get("answer_type") == "percent":
+        for match in _CALC_PERCENT_RE.finditer(answer):
+            diff = abs(_to_float(match.group(1)) - value)
+            if diff <= _CALC_PERCENT_TOL_PP + _CALC_EPSILON:
+                return True
+        return False
+
+    # Dollar amount: strip percent-marked numbers first so a growth rate quoted
+    # alongside the dollar change can't be misread as an amount.
+    text = _CALC_PERCENT_RE.sub(" ", answer)
+    for match in _CALC_AMOUNT_RE.finditer(text):
+        amount = _to_float(match.group(1))
+        unit = (match.group(2) or "").lower()
+        if unit in _BILLION_UNITS:
+            amount *= 1000.0
+        if abs(amount - value) <= _CALC_DOLLAR_REL_TOL * value + _CALC_EPSILON:
+            return True
+    return False
+
+
 def count_key_facts(answer: str, key_facts: List[str]) -> Tuple[int, int]:
     """Return ``(hits, total)`` — how many key_facts appear in ``answer``."""
     norm_answer = normalize(answer)
@@ -226,6 +297,8 @@ def _score_record(
             passed = score_number(
                 answer, expected.get("figure", ""), expected.get("variants", [])
             )
+        elif category == "calculation":
+            passed = score_calculation(answer, expected)
         elif category == "boundary":
             passed = score_boundary(answer)
         elif needs_manual:
@@ -310,6 +383,7 @@ def summarize(
 
     number_total, number_passed, number_acc = accuracy(in_cat("number"))
     boundary_total, boundary_passed, boundary_acc = accuracy(in_cat("boundary"))
+    calc_total, calc_passed, calc_acc = accuracy(in_cat("calculation"))
 
     # Average key_facts hit-rate across the manual-review rows that have facts.
     kf_rows = [r for r in rows if ok(r) and r["key_facts_total"]]
@@ -336,6 +410,9 @@ def summarize(
         "boundary_total": boundary_total,
         "boundary_passed": boundary_passed,
         "boundary_accuracy_pct": boundary_acc,
+        "calculation_total": calc_total,
+        "calculation_passed": calc_passed,
+        "calculation_accuracy_pct": calc_acc,
         "comparison_total": len(in_cat("comparison")),
         "qualitative_total": len(in_cat("qualitative")),
         "avg_key_facts_hit_pct": kf_pct,
@@ -344,6 +421,7 @@ def summarize(
         "avg_latency_comparison": avg_latency(in_cat("comparison")),
         "avg_latency_qualitative": avg_latency(in_cat("qualitative")),
         "avg_latency_boundary": avg_latency(in_cat("boundary")),
+        "avg_latency_calculation": avg_latency(in_cat("calculation")),
     }
 
 
@@ -394,6 +472,9 @@ _SUMMARY_COLUMNS = [
     "boundary_total",
     "boundary_passed",
     "boundary_accuracy_pct",
+    "calculation_total",
+    "calculation_passed",
+    "calculation_accuracy_pct",
     "comparison_total",
     "qualitative_total",
     "avg_key_facts_hit_pct",
@@ -402,6 +483,7 @@ _SUMMARY_COLUMNS = [
     "avg_latency_comparison",
     "avg_latency_qualitative",
     "avg_latency_boundary",
+    "avg_latency_calculation",
 ]
 
 
@@ -465,7 +547,8 @@ def print_summary_table(summaries: List[Dict], skipped: List[Tuple[str, str]]) -
 
     header = (
         f"{'Config':24} {'k':>3} {'QR':>3} {'RR':>3} {'NumAcc':>7} {'BndAcc':>7} "
-        f"{'KFhit':>6} {'AvgLat':>8}  {'Lat n/c/q/b':<20} {'Run':>4} {'Err':>4}"
+        f"{'CalcAcc':>8} {'KFhit':>6} {'AvgLat':>8}  {'Lat n/c/q/b':<20} "
+        f"{'Run':>4} {'Err':>4}"
     )
     print(header)
     print("-" * len(header))
@@ -488,6 +571,7 @@ def print_summary_table(summaries: List[Dict], skipped: List[Tuple[str, str]]) -
             f"{flag(s.get('reranking')):>3} "
             f"{pct(s['number_accuracy_pct']):>7} "
             f"{pct(s['boundary_accuracy_pct']):>7} "
+            f"{pct(s.get('calculation_accuracy_pct')):>8} "
             f"{pct(s['avg_key_facts_hit_pct']):>6} "
             f"{lat(s['avg_latency_seconds']):>8}  "
             f"{lat_by_cat:<20} "
@@ -721,8 +805,8 @@ def main() -> None:
         print("No configs produced results.")
     print()
     print(
-        "Legend: NumAcc/BndAcc = number & boundary accuracy; KFhit = avg "
-        "key_facts hit-rate\n"
+        "Legend: NumAcc/BndAcc/CalcAcc = number, boundary & calculation "
+        "accuracy; KFhit = avg key_facts hit-rate\n"
         "        (comparison/qualitative are flagged needs_manual_review -- "
         "KFhit is a soft signal only).\n"
         "        Lat n/c/q/b = avg latency (s) per category: "

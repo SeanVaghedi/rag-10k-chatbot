@@ -1,12 +1,19 @@
 """Gold-set of evaluation questions for the 10-K comparison chatbot.
 
-This is the ground-truth used by :mod:`eval.run_eval`. It spans four categories,
+This is the ground-truth used by :mod:`eval.run_eval`. It spans five categories,
 each scored differently by the harness:
 
 - ``number``      — a single figure lookup. ``expected`` carries the exact figure
                     string plus a list of accepted ``variants`` (alternate ways
                     of writing the same value). Auto-graded: pass if the figure
                     or any variant appears in the answer.
+- ``calculation`` — a derived figure (growth rate, margin, dollar change) the
+                    model must compute from statement figures. ``expected``
+                    carries the computed ``value`` and an ``answer_type``
+                    (``"percent"`` or ``"dollars_millions"``). Auto-graded with
+                    tolerance: within +/-0.3 percentage points for percents,
+                    within +/-1% for dollar amounts (see
+                    :func:`eval.run_eval.score_calculation`).
 - ``comparison``  — a cross-company comparison. ``expected`` carries a
                     ``reference_answer`` (what a correct answer should say) and a
                     list of ``key_facts`` (short strings that should appear).
@@ -32,7 +39,7 @@ from __future__ import annotations
 from typing import Dict, List
 
 # Valid category values (kept in sync with eval.run_eval).
-CATEGORIES = ("number", "comparison", "qualitative", "boundary")
+CATEGORIES = ("number", "calculation", "comparison", "qualitative", "boundary")
 
 
 GOLD_SET: List[Dict] = [
@@ -199,6 +206,95 @@ GOLD_SET: List[Dict] = [
             ),
             "needs_verification": False,
         },
+    },
+    # ------------------------------------------------------------ CALCULATION
+    # Derived-figure questions: the model must COMPUTE growth rates, margins,
+    # or dollar changes from statement figures (none of these ratios appear
+    # verbatim in the filings). Every input figure below is verified — either
+    # by a number question above or directly against the filings. The
+    # arithmetic behind each expected value is shown so it can be checked.
+    # Scored by eval.run_eval.score_calculation with tolerance: percents pass
+    # within +/-0.3 percentage points; dollar amounts within +/-1%.
+    {
+        # AWS net sales: FY2024 $107,556M -> FY2025 $128,725M.
+        # (128,725 - 107,556) / 107,556 = 21,169 / 107,556 = 0.19682 -> 19.7%
+        "id": "calc-aws-growth-fy2025",
+        "question": (
+            "What was Amazon's AWS revenue growth rate from fiscal 2024 to "
+            "fiscal 2025?"
+        ),
+        "category": "calculation",
+        "expected": {"value": 19.7, "answer_type": "percent"},
+    },
+    {
+        # Amazon total net sales: FY2024 $637,959M -> FY2025 $716,924M.
+        # 716,924 - 637,959 = $78,965M
+        "id": "calc-amazon-netsales-change-fy2025",
+        "question": (
+            "By how much did Amazon's total net sales increase from fiscal "
+            "2024 to fiscal 2025, in dollars?"
+        ),
+        "category": "calculation",
+        "expected": {"value": 78965, "answer_type": "dollars_millions"},
+    },
+    {
+        # Alphabet total revenue: FY2024 $350,018M -> FY2025 $402,836M.
+        # (402,836 - 350,018) / 350,018 = 52,818 / 350,018 = 0.15090 -> 15.1%
+        "id": "calc-alphabet-revenue-growth-fy2025",
+        "question": (
+            "What was Alphabet's revenue growth rate from fiscal 2024 to "
+            "fiscal 2025?"
+        ),
+        "category": "calculation",
+        "expected": {"value": 15.1, "answer_type": "percent"},
+    },
+    {
+        # Microsoft FY2025: operating income $128,528M / total revenue $281,724M.
+        # 128,528 / 281,724 = 0.45622 -> 45.6%
+        "id": "calc-microsoft-opmargin-fy2025",
+        "question": "What was Microsoft's operating margin for fiscal 2025?",
+        "category": "calculation",
+        "expected": {"value": 45.6, "answer_type": "percent"},
+    },
+    {
+        # Amazon FY2025: operating income $79,975M / total net sales $716,924M.
+        # 79,975 / 716,924 = 0.11155 -> 11.2%
+        "id": "calc-amazon-opmargin-fy2025",
+        "question": "What was Amazon's operating margin for fiscal 2025?",
+        "category": "calculation",
+        "expected": {"value": 11.2, "answer_type": "percent"},
+    },
+    {
+        # Microsoft operating income: FY2024 $109,433M -> FY2025 $128,528M.
+        # 128,528 - 109,433 = $19,095M
+        "id": "calc-microsoft-opincome-change-fy2025",
+        "question": (
+            "How much did Microsoft's operating income increase from fiscal "
+            "2024 to fiscal 2025, in dollars?"
+        ),
+        "category": "calculation",
+        "expected": {"value": 19095, "answer_type": "dollars_millions"},
+    },
+    {
+        # Alphabet net income: FY2024 $100,118M -> FY2025 $132,170M.
+        # (132,170 - 100,118) / 100,118 = 32,052 / 100,118 = 0.32014 -> 32.0%
+        "id": "calc-alphabet-netincome-growth-fy2025",
+        "question": (
+            "What was Alphabet's net income growth rate from fiscal 2024 to "
+            "fiscal 2025?"
+        ),
+        "category": "calculation",
+        "expected": {"value": 32.0, "answer_type": "percent"},
+    },
+    {
+        # Microsoft FY2025: gross margin $193,893M / total revenue $281,724M.
+        # 193,893 / 281,724 = 0.68824 -> 68.8%
+        "id": "calc-microsoft-grossmargin-fy2025",
+        "question": (
+            "What was Microsoft's gross margin percentage for fiscal 2025?"
+        ),
+        "category": "calculation",
+        "expected": {"value": 68.8, "answer_type": "percent"},
     },
     # ------------------------------------------------------------ COMPARISON
     {
