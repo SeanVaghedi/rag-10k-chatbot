@@ -221,13 +221,21 @@ def ask(req: AskRequest) -> AskResponse:
 
 @app.post("/ask/stream")
 async def ask_stream(req: AskRequest) -> StreamingResponse:
-    """Stream the answer token-by-token as SSE, then a final sources event.
+    """Stream progress events, then the answer token-by-token, then sources.
 
     Events:
+        - ``progress`` -> {"stage": "<id>", "label": "...", "detail": {...}?}
+                          real pipeline stages as they execute (embedding,
+                          searching, reranking, reading, composing; plus
+                          rewriting when query rewriting is enabled) — emitted
+                          before the first token
         - ``token``  -> {"text": "<partial answer>"}
         - ``sources``-> {"sources": [...], "config": "<name>"}
         - ``done``   -> {}
         - ``error``  -> {"message": "..."} (any mid-stream failure)
+
+    The token/sources/done/error contract is unchanged; ``progress`` is purely
+    additive, so older clients that ignore unknown events keep working.
     """
     # Resolve/validate the pipeline before streaming so config/index/key errors
     # surface as a normal HTTP 400 rather than mid-stream. Runs off the event
@@ -239,6 +247,9 @@ async def ask_stream(req: AskRequest) -> StreamingResponse:
             async for chunk in pipeline.astream(req.question):
                 if isinstance(chunk, str):
                     yield _sse("token", {"text": chunk})
+                elif isinstance(chunk, dict):
+                    # Progress event for a pipeline stage that just started.
+                    yield _sse("progress", chunk)
                 else:
                     # Final item from astream is the list of sources.
                     yield _sse("sources", {"sources": chunk, "config": req.config})

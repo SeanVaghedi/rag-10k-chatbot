@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 import math
 import re
-from typing import AsyncIterator, Dict, List, Tuple, Union
+from typing import AsyncIterator, Callable, Dict, List, Optional, Tuple, Union
 
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -45,6 +45,48 @@ from rag.vectorstore import index_exists, load_vectorstore, persist_dir_for
 
 # A source is the attribution metadata for one retrieved chunk.
 Source = Dict[str, object]
+
+# A progress event describing a real pipeline stage as it executes:
+# {"stage": <id>, "label": <short human string>, "detail": {...}?}. Stage ids:
+# rewriting, embedding, searching, reranking, reading, composing — each emitted
+# only when that stage actually runs.
+ProgressEvent = Dict[str, object]
+ProgressCallback = Callable[[ProgressEvent], None]
+
+
+def _reading_label(docs: List[Document]) -> str:
+    """Human label naming the actual filings/pages selected for the context.
+
+    One doc -> "Reading Amazon 10-K, page 60"; several -> "Reading Amazon
+    (p.60, p.63), Microsoft (p.144)". Companies keep selection (relevance)
+    order; duplicate pages collapse.
+    """
+    order: List[str] = []
+    pages: Dict[str, List[object]] = {}
+    for doc in docs:
+        company = str(doc.metadata.get("company") or "unknown").title()
+        page = doc.metadata.get("page")
+        if company not in pages:
+            pages[company] = []
+            order.append(company)
+        if page is not None and page not in pages[company]:
+            pages[company].append(page)
+
+    if len(docs) == 1:
+        company = order[0]
+        page_list = pages[company]
+        if page_list:
+            return f"Reading {company} 10-K, page {page_list[0]}"
+        return f"Reading {company} 10-K"
+
+    parts = []
+    for company in order:
+        page_list = pages[company]
+        if page_list:
+            parts.append(f"{company} ({', '.join(f'p.{p}' for p in page_list)})")
+        else:
+            parts.append(company)
+    return "Reading " + ", ".join(parts)
 
 # Inline citation markers in the answer text, e.g. "[1]" or "[2, 3]". Only
 # digits/commas/whitespace inside the brackets, so "[note]" or "[3.5]" won't match.
@@ -126,19 +168,42 @@ class RagPipeline:
                 "latency per question). Disable with use_query_rewriting=False."
             )
 
-    def _retrieve(self, question: str) -> List[Document]:
+    def _retrieve(
+        self, question: str, on_progress: Optional[ProgressCallback] = None
+    ) -> List[Document]:
         """Retrieve the final ``k`` chunks for ``question``.
 
         Applies query rewriting and/or MMR reranking per the pipeline toggles;
         with both off this is exactly the original top-``k`` similarity search.
+
+        ``on_progress`` (optional) is called with a :data:`ProgressEvent` as
+        each stage actually starts — never on a timer, and never for a stage
+        that does not run (e.g. no "reranking" event with reranking disabled).
+        The sync :meth:`ask` path passes no callback and behaves as before.
         """
+
+        def emit(stage: str, label: str, **detail: object) -> None:
+            if on_progress is not None:
+                event: ProgressEvent = {"stage": stage, "label": label}
+                if detail:
+                    event["detail"] = detail
+                on_progress(event)
+
         queries = [question]
         if self.use_query_rewriting:
+            emit("rewriting", "Expanding your question into search queries")
             seen = {question.strip().lower()}
             for q in rewrite_query(self.llm, question):
                 if q.strip().lower() not in seen:
                     seen.add(q.strip().lower())
                     queries.append(q)
+
+        # With reranking on, the question is embedded once up front: the vector
+        # drives both the original-question search and the MMR relevance term.
+        query_vec: Optional[List[float]] = None
+        if self.use_reranking:
+            emit("embedding", "Embedding your question")
+            query_vec = self.embeddings.embed_query(question)
 
         # Per-query depth: with reranking, split the ~fetch_k candidate budget
         # across the queries; without it, each query fetches k and the merged
@@ -148,21 +213,60 @@ class RagPipeline:
         else:
             per_query = self.k
 
-        ranked_lists = [
-            self.vectorstore.similarity_search(q, k=per_query) for q in queries
-        ]
+        emit(
+            "searching",
+            f"Searching 10-K filings ({per_query * len(queries)} candidates)",
+            candidates=per_query * len(queries),
+            queries=len(queries),
+        )
+        ranked_lists = []
+        for i, q in enumerate(queries):
+            if i == 0 and query_vec is not None:
+                # Same code path similarity_search uses internally, minus the
+                # redundant second embedding of the original question.
+                ranked_lists.append(
+                    self.vectorstore.similarity_search_by_vector(
+                        query_vec, k=per_query
+                    )
+                )
+            else:
+                ranked_lists.append(self.vectorstore.similarity_search(q, k=per_query))
         candidates = merge_ranked_lists(ranked_lists)
 
         if self.use_reranking:
-            return mmr_rerank(
+            emit(
+                "reranking",
+                f"Reranking {len(candidates)} passages → top "
+                f"{min(self.k, len(candidates))}",
+                candidates=len(candidates),
+                top_k=self.k,
+            )
+            docs = mmr_rerank(
                 self.vectorstore,
                 self.embeddings,
                 question,
                 candidates,
                 k=self.k,
                 lambda_mult=self.mmr_lambda,
+                query_embedding=query_vec,
             )
-        return candidates[: self.k]
+        else:
+            docs = candidates[: self.k]
+
+        if docs:
+            emit(
+                "reading",
+                _reading_label(docs),
+                documents=[
+                    {
+                        "company": doc.metadata.get("company"),
+                        "year": doc.metadata.get("year"),
+                        "page": doc.metadata.get("page"),
+                    }
+                    for doc in docs
+                ],
+            )
+        return docs
 
     def _build_chain(self):
         """Compose the retrieve -> format -> prompt -> LLM chain with LCEL.
@@ -225,21 +329,59 @@ class RagPipeline:
         sources = self._cited_sources(answer, result["docs"])
         return answer, sources
 
-    async def astream(self, question: str) -> AsyncIterator[Union[str, List[Source]]]:
-        """Stream the answer token-by-token, then yield the source list.
+    async def astream(
+        self, question: str
+    ) -> AsyncIterator[Union[str, ProgressEvent, List[Source]]]:
+        """Stream progress events, then the answer token-by-token, then sources.
 
-        Async counterpart to :meth:`ask` (which is left unchanged). Retrieval
-        happens first, then the answer is streamed from the shared answer chain.
+        Async counterpart to :meth:`ask` (which is left unchanged). Progress
+        events are emitted from the retrieval stages as they actually execute
+        (relayed live from the retrieval worker thread), followed by a final
+        "composing" event immediately before LLM generation begins.
 
         Yields:
-            ``str`` tokens of the answer as they are generated, followed by a
-            single final ``List[Source]`` with the retrieved chunks used.
-            Consumers distinguish by type: ``str`` -> answer token,
-            ``list`` -> the final sources.
+            ``dict`` progress events (see :data:`ProgressEvent`) while the
+            pipeline works, then ``str`` tokens of the answer as they are
+            generated, then a single final ``List[Source]`` with the retrieved
+            chunks used. Consumers distinguish by type: ``dict`` -> progress,
+            ``str`` -> answer token, ``list`` -> the final sources. The answer
+            and sources payloads are unchanged from before progress events
+            existed.
         """
         # Retrieval (incl. the optional rewrite LLM call and MMR pass) is
-        # synchronous; run it in a worker thread to keep the event loop free.
-        docs = await asyncio.to_thread(self._retrieve, question)
+        # synchronous; run it in a worker thread and relay its progress events
+        # into this async generator via a loop-bound queue. The worker pushes
+        # ("progress", event) as stages run and a final ("done", docs) /
+        # ("error", exc), so no events can be lost to consumer/worker races.
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def on_progress(event: ProgressEvent) -> None:
+            loop.call_soon_threadsafe(queue.put_nowait, ("progress", event))
+
+        def run_retrieval() -> None:
+            try:
+                docs = self._retrieve(question, on_progress)
+                loop.call_soon_threadsafe(queue.put_nowait, ("done", docs))
+            except Exception as exc:  # noqa: BLE001 - relayed to the consumer below
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", exc))
+
+        worker = asyncio.create_task(asyncio.to_thread(run_retrieval))
+        try:
+            docs: List[Document] = []
+            while True:
+                kind, payload = await queue.get()
+                if kind == "progress":
+                    yield payload
+                elif kind == "done":
+                    docs = payload
+                    break
+                else:
+                    raise payload
+        finally:
+            await worker
+
+        yield {"stage": "composing", "label": "Composing answer"}
         context = format_docs(docs)
         parts: List[str] = []
         async for token in self._answer_chain.astream(

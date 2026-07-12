@@ -13,6 +13,14 @@ export interface Source {
   chunk_text?: string | null;
 }
 
+/** A real pipeline stage reported by the backend while an answer streams
+ * (embedding, searching, reranking, reading, composing, …). */
+export interface ProgressEvent {
+  stage: string;
+  label: string;
+  detail?: Record<string, unknown>;
+}
+
 export type Role = "user" | "assistant";
 
 export interface ChatMessage {
@@ -20,6 +28,10 @@ export interface ChatMessage {
   role: Role;
   content: string;
   sources?: Source[];
+  /** For assistant messages: pipeline progress steps received while this
+   * answer was generated. Shown live during thinking, then kept as a
+   * collapsible "Thought process" summary. */
+  thinking?: ProgressEvent[];
   /** For assistant messages: the user question this answer responds to
    * (frontend-only; shown as context in the sources panel). */
   question?: string;

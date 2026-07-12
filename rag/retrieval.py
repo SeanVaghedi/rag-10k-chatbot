@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 import numpy as np
 from langchain_community.vectorstores import FAISS
@@ -171,6 +171,7 @@ def mmr_rerank(
     candidates: Sequence[Document],
     k: int = 5,
     lambda_mult: float = 0.5,
+    query_embedding: Optional[List[float]] = None,
 ) -> List[Document]:
     """Rerank ``candidates`` against the ORIGINAL ``question`` with MMR; keep top-``k``.
 
@@ -178,7 +179,8 @@ def mmr_rerank(
     rewriting already adds one), has no output-parsing failure mode, and reuses
     the vectors already stored in the FAISS index: each candidate's embedding is
     reconstructed from the index via its docstore id, so the only new network
-    call is embedding the question itself. MMR's relevance term keeps the chunks
+    call is embedding the question itself (skipped when the caller passes a
+    precomputed ``query_embedding``). MMR's relevance term keeps the chunks
     closest to the original question; its diversity term stops near-duplicate
     chunks from one filing crowding out another company's passages — the failure
     mode behind comparison-question retrieval misses.
@@ -199,7 +201,9 @@ def mmr_rerank(
             if pos is None:
                 return list(candidates)[:k]
             vectors.append(vectorstore.index.reconstruct(int(pos)))
-        query_vec = np.array([embeddings.embed_query(question)], dtype=np.float32)
+        if query_embedding is None:
+            query_embedding = embeddings.embed_query(question)
+        query_vec = np.array([query_embedding], dtype=np.float32)
     except Exception:  # noqa: BLE001 - reranking is best-effort, never fail retrieval
         return list(candidates)[:k]
 

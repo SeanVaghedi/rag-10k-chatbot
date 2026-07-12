@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import type { ChatMessage } from "@/lib/types";
 import { Markdown } from "./Markdown";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { ThinkingSteps } from "./ThinkingSteps";
 
 function AssistantMark() {
   return (
@@ -28,6 +29,8 @@ export function MessageBubble({
 }) {
   const isUser = message.role === "user";
   const showThinking = message.streaming && !message.content && !message.error;
+  const thinkingSteps = message.thinking ?? [];
+  const hasThinking = thinkingSteps.length > 0;
   const sourceCount = message.sources?.length ?? 0;
   const showBadge = !isUser && !message.error && sourceCount > 0;
 
@@ -55,18 +58,29 @@ export function MessageBubble({
         {isUser ? (
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : showThinking ? (
-          <ThinkingIndicator />
+          // Live pipeline steps when the backend streams them; the classic
+          // orb indicator when it doesn't (older backend — graceful fallback).
+          hasThinking ? (
+            <ThinkingSteps steps={thinkingSteps} live />
+          ) : (
+            <ThinkingIndicator />
+          )
         ) : (
-          <div className={message.streaming ? "caret" : undefined}>
-            {message.error ? (
-              <p className="flex items-start gap-2 text-rose-200">
-                <span aria-hidden>⚠</span>
-                <span className="whitespace-pre-wrap">{message.content}</span>
-              </p>
-            ) : (
-              <Markdown>{message.content}</Markdown>
+          <>
+            {hasThinking && !message.error && (
+              <ThinkingSteps steps={thinkingSteps} live={false} />
             )}
-          </div>
+            <div className={message.streaming ? "caret" : undefined}>
+              {message.error ? (
+                <p className="flex items-start gap-2 text-rose-200">
+                  <span aria-hidden>⚠</span>
+                  <span className="whitespace-pre-wrap">{message.content}</span>
+                </p>
+              ) : (
+                <Markdown>{message.content}</Markdown>
+              )}
+            </div>
+          </>
         )}
 
         {/* Sources badge — selects this answer's sources into the panel. */}

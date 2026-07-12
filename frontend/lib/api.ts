@@ -1,4 +1,4 @@
-import type { ConfigInfo, Source } from "./types";
+import type { ConfigInfo, ProgressEvent, Source } from "./types";
 
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
@@ -20,6 +20,9 @@ export async function fetchConfigs(signal?: AbortSignal): Promise<ConfigInfo[]> 
 export interface StreamHandlers {
   onToken: (text: string) => void;
   onSources: (sources: Source[]) => void;
+  /** Real pipeline stage updates emitted before the first token. Optional —
+   * older backends never send them, and the UI falls back gracefully. */
+  onProgress?: (event: ProgressEvent) => void;
   onError?: (message: string) => void;
   onDone?: () => void;
 }
@@ -28,6 +31,7 @@ export interface StreamHandlers {
  * POST to /ask/stream and parse the Server-Sent-Events response.
  *
  * The backend emits framed events:
+ *   event: progress -> { stage, label, detail? }  (pipeline stages, pre-token)
  *   event: token   -> { text }
  *   event: sources -> { sources, config }
  *   event: done    -> {}
@@ -83,6 +87,11 @@ export async function streamAsk(
     switch (event) {
       case "token":
         handlers.onToken(data.text ?? "");
+        break;
+      case "progress":
+        if (typeof data?.label === "string") {
+          handlers.onProgress?.(data as ProgressEvent);
+        }
         break;
       case "sources":
         handlers.onSources(data.sources ?? []);

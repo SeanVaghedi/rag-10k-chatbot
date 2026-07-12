@@ -147,6 +147,10 @@ export default function ChatApp() {
           PRODUCTION_CONFIG,
           {
             onToken: (t) => patch((m) => ({ ...m, content: m.content + t })),
+            // Real pipeline stages (embedding, searching, reranking, reading,
+            // composing) — accumulate so the bubble shows them as they happen.
+            onProgress: (p) =>
+              patch((m) => ({ ...m, thinking: [...(m.thinking ?? []), p] })),
             onSources: (s) => {
               patch((m) => ({ ...m, sources: s }));
               // Newest answer takes over the panel — regardless of what was
