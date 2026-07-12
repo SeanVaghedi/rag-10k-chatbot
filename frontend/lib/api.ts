@@ -3,6 +3,18 @@ import type { ConfigInfo, ProgressEvent, Source } from "./types";
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
 
+/** An HTTP-level API failure, carrying the status code so the UI can map it
+ * to friendly copy (429 -> rate-limited, 503 -> unavailable, ...). */
+export class ApiError extends Error {
+  readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 /**
  * Fetch the available configs. The backend wraps the list under a `value` key
  * (`{ value: [...], Count }`), but we also accept a bare array for robustness.
@@ -53,7 +65,8 @@ export async function streamAsk(
   });
 
   if (!res.ok || !res.body) {
-    // Surface the backend's actionable message (e.g. "index not built").
+    // Carry the backend's message for console logging (e.g. "index not
+    // built") plus the status so the UI can choose friendly copy.
     let detail = `Request failed (HTTP ${res.status}).`;
     try {
       const body = await res.json();
@@ -61,7 +74,7 @@ export async function streamAsk(
     } catch {
       /* non-JSON error body */
     }
-    throw new Error(detail);
+    throw new ApiError(detail, res.status);
   }
 
   const reader = res.body.getReader();

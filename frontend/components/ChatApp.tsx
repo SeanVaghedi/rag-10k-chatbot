@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import type { ChatMessage, ConfigInfo, Source } from "@/lib/types";
-import { fetchConfigs, streamAsk } from "@/lib/api";
+import { ApiError, fetchConfigs, streamAsk } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { Background } from "./Background";
 import { Header } from "./Header";
 import { ModelConfigPanel, ModelConfigsButton } from "./ModelConfigPanel";
@@ -113,6 +114,71 @@ export default function ChatApp() {
       ? `Index not built for "${selectedInfo?.label}". Run: python scripts/build_index.py --config ${PRODUCTION_CONFIG}`
       : null;
 
+  /** Stream an answer for `q` into the assistant message `assistantId`.
+   * Shared by send() (fresh message pair) and retry() (reuses the bubble).
+   * Errors surface as friendly copy; raw payloads go to the console only. */
+  const runStream = useCallback(async (assistantId: string, q: string) => {
+    setIsStreaming(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const patch = (updater: (m: ChatMessage) => ChatMessage) =>
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId ? updater(m) : m)),
+      );
+
+    try {
+      await streamAsk(
+        q,
+        PRODUCTION_CONFIG,
+        {
+          onToken: (t) => patch((m) => ({ ...m, content: m.content + t })),
+          // Real pipeline stages (embedding, searching, reranking, reading,
+          // composing) — accumulate so the bubble shows them as they happen.
+          onProgress: (p) =>
+            patch((m) => ({ ...m, thinking: [...(m.thinking ?? []), p] })),
+          onSources: (s) => {
+            patch((m) => ({ ...m, sources: s }));
+            // Newest answer takes over the panel — regardless of what was
+            // selected. (An answer citing nothing keeps the prior selection:
+            // it renders no badge, so it could never be re-selected.)
+            if (s.length > 0) setSelectedMessageId(assistantId);
+          },
+          onError: (msg) => {
+            // Full provider payload for debugging; friendly copy for the chat.
+            console.error("Streaming error from backend:", msg);
+            const friendly = friendlyErrorMessage(msg);
+            patch((m) => ({
+              ...m,
+              content: m.content ? `${m.content}\n\n${friendly}` : friendly,
+              error: true,
+              streaming: false,
+            }));
+          },
+        },
+        controller.signal,
+      );
+    } catch (e) {
+      if (controller.signal.aborted) return;
+      console.error("Ask request failed:", e);
+      const friendly = friendlyErrorMessage(
+        e instanceof Error ? e.message : String(e),
+        e instanceof ApiError ? e.status : undefined,
+      );
+      patch((m) => ({
+        ...m,
+        content: m.content || friendly,
+        error: true,
+        streaming: false,
+      }));
+    } finally {
+      patch((m) => ({ ...m, streaming: false }));
+      setIsStreaming(false);
+      abortRef.current = null;
+    }
+  }, []);
+
   const send = useCallback(
     async (raw?: string) => {
       const q = (raw ?? input).trim();
@@ -131,59 +197,34 @@ export default function ChatApp() {
         },
       ]);
       setInput("");
-      setIsStreaming(true);
-
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      const patch = (updater: (m: ChatMessage) => ChatMessage) =>
-        setMessages((prev) =>
-          prev.map((m) => (m.id === assistantId ? updater(m) : m)),
-        );
-
-      try {
-        await streamAsk(
-          q,
-          PRODUCTION_CONFIG,
-          {
-            onToken: (t) => patch((m) => ({ ...m, content: m.content + t })),
-            // Real pipeline stages (embedding, searching, reranking, reading,
-            // composing) — accumulate so the bubble shows them as they happen.
-            onProgress: (p) =>
-              patch((m) => ({ ...m, thinking: [...(m.thinking ?? []), p] })),
-            onSources: (s) => {
-              patch((m) => ({ ...m, sources: s }));
-              // Newest answer takes over the panel — regardless of what was
-              // selected. (An answer citing nothing keeps the prior selection:
-              // it renders no badge, so it could never be re-selected.)
-              if (s.length > 0) setSelectedMessageId(assistantId);
-            },
-            onError: (msg) =>
-              patch((m) => ({
-                ...m,
-                content: m.content ? `${m.content}\n\n_${msg}_` : msg,
-                error: true,
-                streaming: false,
-              })),
-          },
-          controller.signal,
-        );
-      } catch (e) {
-        if (controller.signal.aborted) return;
-        const msg = e instanceof Error ? e.message : "Something went wrong.";
-        patch((m) => ({
-          ...m,
-          content: m.content || msg,
-          error: true,
-          streaming: false,
-        }));
-      } finally {
-        patch((m) => ({ ...m, streaming: false }));
-        setIsStreaming(false);
-        abortRef.current = null;
-      }
+      await runStream(assistantId, q);
     },
-    [input, isStreaming, configError, indexMissing],
+    [input, isStreaming, configError, indexMissing, runStream],
+  );
+
+  /** Re-run a failed answer in place: reset its bubble and stream again. */
+  const retry = useCallback(
+    async (id: string) => {
+      if (isStreaming) return;
+      const target = messages.find((m) => m.id === id);
+      if (!target?.question) return;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                content: "",
+                error: false,
+                streaming: true,
+                sources: undefined,
+                thinking: undefined,
+              }
+            : m,
+        ),
+      );
+      await runStream(id, target.question);
+    },
+    [messages, isStreaming, runStream],
   );
 
   const openSource = useCallback((s: Source) => {
@@ -255,6 +296,11 @@ export default function ChatApp() {
                       message={m}
                       selected={m.id === selectedMessageId}
                       onSelectSources={() => selectSources(m.id)}
+                      onRetry={
+                        m.error && m.question && !isStreaming
+                          ? () => retry(m.id)
+                          : undefined
+                      }
                     />
                   ))}
                 </div>

@@ -15,12 +15,57 @@ import { motion } from "framer-motion";
 const RUNNING_CONFIG: { label: string; value: string }[] = [
   { label: "LLM", value: "Google Gemini 3.1 Pro (gemini-3.1-pro-preview)" },
   { label: "Embeddings", value: "gemini-embedding-001" },
-  { label: "Vector store", value: "FAISS (local, similarity search)" },
+  { label: "Vector store", value: "FAISS (local)" },
   { label: "Chunk size / overlap", value: "1000 / 150 tokens" },
-  { label: "Retrieval depth (k)", value: "5" },
+  {
+    label: "Retrieval",
+    value: "MMR reranking — 20 candidates reranked to top 5 (k=5)",
+  },
   {
     label: "Corpus",
     value: "Alphabet, Amazon, Microsoft 10-K filings (FY2025)",
+  },
+];
+
+/** Production performance on the 24-question gold set (current pipeline:
+ * MMR reranking + derived-metric prompt). */
+const PRODUCTION_METRICS: { label: string; value: string }[] = [
+  { label: "Number accuracy", value: "100%" },
+  { label: "Calculation accuracy", value: "100%" },
+  { label: "Boundary accuracy", value: "100%" },
+  { label: "Retrieval richness (key-facts)", value: "91.7%" },
+  { label: "Avg latency", value: "~8s" },
+];
+
+/** Retrieval A/B on the gold set: how the production retrieval was chosen.
+ * `keyFacts` drives the bar width; `valueLabel` is what's printed (the
+ * combined arm matched 91.7% but added no gain over reranking alone). */
+const RETRIEVAL_AB: {
+  name: string;
+  keyFacts: number;
+  valueLabel: string;
+  meta: string;
+  selected?: boolean;
+}[] = [
+  { name: "Baseline (top-k only)", keyFacts: 80, valueLabel: "80%", meta: "~8s" },
+  {
+    name: "Query rewriting",
+    keyFacts: 91.7,
+    valueLabel: "91.7%",
+    meta: "~16s · varies run-to-run",
+  },
+  {
+    name: "MMR reranking",
+    keyFacts: 91.7,
+    valueLabel: "91.7%",
+    meta: "~8s · deterministic",
+    selected: true,
+  },
+  {
+    name: "Rewriting + reranking",
+    keyFacts: 91.7,
+    valueLabel: "no gain",
+    meta: "~40s",
   },
 ];
 
@@ -204,6 +249,33 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
             </dl>
           </section>
 
+          {/* A2 — Production performance */}
+          <section aria-label="Production performance">
+            <Eyebrow>Production performance</Eyebrow>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {PRODUCTION_METRICS.map((m) => (
+                <div
+                  key={m.label}
+                  className="rounded-xl bg-white/[0.025] px-3 py-2.5 ring-1 ring-inset ring-white/[0.06]"
+                >
+                  <div className="font-mono text-[16px] font-semibold tabular-nums text-ink">
+                    {m.value}
+                  </div>
+                  <div className="mt-0.5 text-[10.5px] leading-tight text-muted">
+                    {m.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2.5 px-1 text-[12px] leading-relaxed text-muted">
+              Measured on the 24-question gold set. Boundary accuracy =
+              correctly refusing out-of-scope questions (projections,
+              companies not in the corpus); calculation = derived metrics
+              (growth rates, margins, dollar changes) computed from statement
+              figures.
+            </p>
+          </section>
+
           {/* B — Why this configuration */}
           <section aria-label="Why this configuration">
             <Eyebrow>Why this configuration</Eyebrow>
@@ -290,6 +362,74 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
               the richest retrieval; k=5 optimal by sweep (k=3→43%, k=5/8→80%
               key-facts).
             </p>
+            <p className="mt-1.5 px-1 text-[11.5px] italic leading-relaxed text-muted/80">
+              Comparison run at configuration-selection time; the selected
+              configuration was subsequently optimized with MMR reranking and
+              derived-metric support.
+            </p>
+          </section>
+
+          {/* B2 — Retrieval optimization (A/B) */}
+          <section aria-label="Retrieval optimization">
+            <Eyebrow>Retrieval optimization</Eyebrow>
+            <div className="mt-3 space-y-3.5 rounded-xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-inset ring-white/[0.06]">
+              {RETRIEVAL_AB.map((row, i) => (
+                <div key={row.name}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={`truncate text-[12.5px] ${
+                          row.selected
+                            ? "font-semibold text-white"
+                            : "text-ink/80"
+                        }`}
+                      >
+                        {row.name}
+                      </span>
+                      {row.selected && (
+                        <span className="shrink-0 rounded-full bg-gradient-to-r from-accent to-accent2 px-1.5 py-px font-mono text-[9px] font-bold uppercase tracking-wider text-[#080a16]">
+                          selected
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-muted">
+                      <span
+                        className={
+                          row.selected
+                            ? "font-semibold text-mint"
+                            : "text-ink/90"
+                        }
+                      >
+                        {row.valueLabel}
+                      </span>{" "}
+                      · {row.meta}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${row.keyFacts}%` }}
+                      transition={{
+                        delay: 0.2 + i * 0.09,
+                        type: "spring",
+                        stiffness: 110,
+                        damping: 22,
+                      }}
+                      className={`h-full rounded-full ${
+                        row.selected
+                          ? "bg-gradient-to-r from-accent to-accent2 shadow-glow-cyan"
+                          : "bg-white/20"
+                      }`}
+                    />
+                  </div>
+                </div>
+              ))}
+              <p className="pt-0.5 text-[12px] leading-relaxed text-muted">
+                MMR reranking selected: matches query rewriting&apos;s quality
+                deterministically, at half the latency, with no extra LLM
+                call.
+              </p>
+            </div>
           </section>
 
           {/* C — Retrieval depth sweep */}
@@ -328,8 +468,9 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
               <p className="pt-1 text-[12px] leading-relaxed text-muted">
-                Key-facts hit-rate by retrieval depth. k=5 chosen for equal
-                richness to k=8 at lower latency and cost.
+                Key-facts hit-rate by retrieval depth (plain similarity
+                search, pre-reranking). k=5 chosen for equal richness to k=8
+                at lower latency and cost.
               </p>
             </div>
           </section>

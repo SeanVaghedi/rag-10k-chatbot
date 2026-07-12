@@ -20,12 +20,16 @@ export function MessageBubble({
   message,
   selected,
   onSelectSources,
+  onRetry,
 }: {
   message: ChatMessage;
   /** True when the sources panel is showing this answer's sources. */
   selected?: boolean;
   /** Selects this answer's sources into the panel (via the badge). */
   onSelectSources?: () => void;
+  /** Re-asks this answer's question after an error. Only passed for error
+   * bubbles while nothing else is streaming. */
+  onRetry?: () => void;
 }) {
   const isUser = message.role === "user";
   const showThinking = message.streaming && !message.content && !message.error;
@@ -72,10 +76,38 @@ export function MessageBubble({
             )}
             <div className={message.streaming ? "caret" : undefined}>
               {message.error ? (
-                <p className="flex items-start gap-2 text-rose-200">
-                  <span aria-hidden>⚠</span>
-                  <span className="whitespace-pre-wrap">{message.content}</span>
-                </p>
+                <div className="flex flex-col gap-2.5">
+                  <p className="flex items-start gap-2 text-rose-200">
+                    <span aria-hidden>⚠</span>
+                    <span className="whitespace-pre-wrap">
+                      {message.content}
+                    </span>
+                  </p>
+                  {onRetry && (
+                    <button
+                      type="button"
+                      onClick={onRetry}
+                      className="inline-flex items-center gap-1.5 self-start rounded-full bg-white/5 px-2.5 py-1 font-mono text-[11px] text-muted ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/10 hover:text-ink"
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden
+                      >
+                        <path
+                          d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4h-4"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      Retry
+                    </button>
+                  )}
+                </div>
               ) : (
                 <Markdown>{message.content}</Markdown>
               )}
