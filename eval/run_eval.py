@@ -26,15 +26,32 @@ Usage:
     python eval/run_eval.py --config gemini_native             # a single config
     python eval/run_eval.py --configs gemini_native,llama_local   # a subset
     python eval/run_eval.py --config gemini_native --k 8       # sweep retrieval depth
+    python eval/run_eval.py --config gemini_native --no-reranking   # plain top-k baseline
+    python eval/run_eval.py --config gemini_native --query-rewriting  # rewriting arm
 
 ``--k`` overrides how many chunks the retriever returns for this run only (a
 retrieval-depth sweep, e.g. k=3 / 5 / 8). It does NOT change the production
 default (RagPipeline / build_retriever still default to k=5).
 
-Outputs (in eval/results/, tagged with the retrieval depth ``k``):
-    results_<timestamp>_k<k>.csv   one row per (config, question) with scores.
-    summary_<timestamp>_k<k>.csv   per-config aggregate metrics (incl. retrieval_k).
-    results_<timestamp>_k<k>.jsonl full records incl. retrieved source chunks.
+``--query-rewriting`` / ``--reranking`` (and their ``--no-*`` forms) toggle the
+pipeline's query expansion and MMR reranking stages for this run. Defaults
+mirror the production RagPipeline defaults — reranking ON, query rewriting OFF,
+as decided by the retrieval A/B (reranking matched rewriting's key-facts gain
+with no extra LLM call, no run-to-run variance, and roughly half the latency).
+The four A/B arms:
+    (default)                          reranking only  == production
+    --query-rewriting                  rewriting + reranking
+    --query-rewriting --no-reranking   rewriting only
+    --no-reranking                     plain top-k baseline
+Note that query rewriting adds one extra LLM call per question, so runs with it
+enabled are noticeably slower per question (roughly +1-3s).
+
+Outputs (in eval/results/, tagged with the retrieval depth ``k`` and any
+retrieval stage that deviates from the production defaults: ``_qr`` when
+rewriting is on, ``_norr`` when reranking is off):
+    results_<timestamp>_k<k>[tags].csv   one row per (config, question) with scores.
+    summary_<timestamp>_k<k>[tags].csv   per-config aggregates (incl. retrieval flags).
+    results_<timestamp>_k<k>[tags].jsonl full records incl. retrieved source chunks.
 """
 
 from __future__ import annotations
@@ -260,12 +277,19 @@ def _status(record: Dict) -> str:
 # ---------------------------------------------------------------------------
 # Aggregation
 # ---------------------------------------------------------------------------
-def summarize(config_name: str, rows: List[Dict], k: Optional[int] = None) -> Dict:
+def summarize(
+    config_name: str,
+    rows: List[Dict],
+    k: Optional[int] = None,
+    query_rewriting: Optional[bool] = None,
+    reranking: Optional[bool] = None,
+) -> Dict:
     """Compute per-config aggregate metrics from that config's rows.
 
-    ``k`` is the retrieval depth used for the run; it is recorded on the summary
-    so different --k sweeps are self-labeled. Left ``None`` by callers that do
-    not track k (e.g. re-scoring an existing run).
+    ``k`` is the retrieval depth used for the run; ``query_rewriting`` /
+    ``reranking`` record which retrieval stages were enabled. All three are
+    stamped on the summary so different sweeps are self-labeled, and left
+    ``None`` by callers that do not track them (e.g. re-scoring an old run).
     """
 
     def ok(row: Dict) -> bool:
@@ -302,6 +326,8 @@ def summarize(config_name: str, rows: List[Dict], k: Optional[int] = None) -> Di
     return {
         "config": config_name,
         "retrieval_k": k,
+        "query_rewriting": query_rewriting,
+        "reranking": reranking,
         "total_questions_run": sum(1 for r in rows if ok(r)),
         "errors": sum(1 for r in rows if r["error"]),
         "number_total": number_total,
@@ -339,6 +365,8 @@ def _format_sources(sources: List[Dict]) -> str:
 _RESULTS_COLUMNS = [
     "config",
     "retrieval_k",
+    "query_rewriting",
+    "reranking",
     "question_id",
     "category",
     "question",
@@ -356,6 +384,8 @@ _RESULTS_COLUMNS = [
 _SUMMARY_COLUMNS = [
     "config",
     "retrieval_k",
+    "query_rewriting",
+    "reranking",
     "total_questions_run",
     "errors",
     "number_total",
@@ -387,9 +417,11 @@ def write_results_csv(path: Path, rows: List[Dict]) -> None:
             writer.writerow(
                 {
                     "config": r["config"],
-                    # .get so rows from callers that don't track k (re-scoring)
-                    # still write cleanly as a blank cell.
+                    # .get so rows from callers that don't track these
+                    # (re-scoring old runs) still write cleanly as blank cells.
                     "retrieval_k": _blank_if_none(r.get("retrieval_k")),
+                    "query_rewriting": _blank_if_none(r.get("query_rewriting")),
+                    "reranking": _blank_if_none(r.get("reranking")),
                     "question_id": r["question_id"],
                     "category": r["category"],
                     "question": r["question"],
@@ -428,9 +460,12 @@ def print_summary_table(summaries: List[Dict], skipped: List[Tuple[str, str]]) -
     def lat(value: Optional[float]) -> str:
         return "n/a" if value is None else f"{value:.2f}s"
 
+    def flag(value: Optional[bool]) -> str:
+        return "-" if value is None else ("on" if value else "off")
+
     header = (
-        f"{'Config':24} {'k':>3} {'NumAcc':>7} {'BndAcc':>7} {'KFhit':>6} "
-        f"{'AvgLat':>8}  {'Lat n/c/q/b':<20} {'Run':>4} {'Err':>4}"
+        f"{'Config':24} {'k':>3} {'QR':>3} {'RR':>3} {'NumAcc':>7} {'BndAcc':>7} "
+        f"{'KFhit':>6} {'AvgLat':>8}  {'Lat n/c/q/b':<20} {'Run':>4} {'Err':>4}"
     )
     print(header)
     print("-" * len(header))
@@ -449,6 +484,8 @@ def print_summary_table(summaries: List[Dict], skipped: List[Tuple[str, str]]) -
         print(
             f"{s['config']:24} "
             f"{kstr:>3} "
+            f"{flag(s.get('query_rewriting')):>3} "
+            f"{flag(s.get('reranking')):>3} "
             f"{pct(s['number_accuracy_pct']):>7} "
             f"{pct(s['boundary_accuracy_pct']):>7} "
             f"{pct(s['avg_key_facts_hit_pct']):>6} "
@@ -488,6 +525,27 @@ def parse_args() -> argparse.Namespace:
             "default."
         ),
     )
+    parser.add_argument(
+        "--query-rewriting",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Enable/disable LLM query rewriting (multi-query retrieval) for "
+            "this run. Default mirrors the production RagPipeline default "
+            "(off, per the retrieval A/B); pass --query-rewriting to re-run "
+            "the rewriting arms."
+        ),
+    )
+    parser.add_argument(
+        "--reranking",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Enable/disable MMR reranking of the retrieved candidate pool for "
+            "this run. Default mirrors the production RagPipeline default "
+            "(on); pass --no-reranking to measure the plain top-k baseline."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -512,34 +570,46 @@ def resolve_configs(args: argparse.Namespace) -> List[str]:
     return known
 
 
-def build_pipeline(config_name: str, k: int) -> RagPipeline:
+def build_pipeline(
+    config_name: str, k: int, use_query_rewriting: bool, use_reranking: bool
+) -> RagPipeline:
     chunk_size, chunk_overlap = chunk_params_for(config_name)
     return RagPipeline(
         config_name=config_name,
         k=k,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+        use_query_rewriting=use_query_rewriting,
+        use_reranking=use_reranking,
     )
 
 
 def run_config(
-    config_name: str, index: int, total_configs: int, k: int
+    config_name: str,
+    index: int,
+    total_configs: int,
+    k: int,
+    use_query_rewriting: bool,
+    use_reranking: bool,
 ) -> Optional[List[Dict]]:
     """Run the whole gold set against one config at retrieval depth ``k``.
 
-    Returns the list of result rows (each stamped with ``retrieval_k``), or
-    ``None`` if the config was skipped because its index has not been built yet.
+    Returns the list of result rows (each stamped with ``retrieval_k`` and the
+    retrieval-stage flags), or ``None`` if the config was skipped because its
+    index has not been built yet.
     """
     chunk_size, chunk_overlap = chunk_params_for(config_name)
     print(
         f"=== Config {index}/{total_configs}: {config_name} "
-        f"(k={k}, chunk_size={chunk_size}, chunk_overlap={chunk_overlap}) ==="
+        f"(k={k}, chunk_size={chunk_size}, chunk_overlap={chunk_overlap}, "
+        f"query_rewriting={'on' if use_query_rewriting else 'off'}, "
+        f"reranking={'on' if use_reranking else 'off'}) ==="
     )
 
     init_error = ""
     pipeline: Optional[RagPipeline] = None
     try:
-        pipeline = build_pipeline(config_name, k)
+        pipeline = build_pipeline(config_name, k, use_query_rewriting, use_reranking)
     except FileNotFoundError as exc:
         print(f"  SKIP: index not built for '{config_name}'.")
         print(f"        {exc}\n")
@@ -564,6 +634,8 @@ def run_config(
             record = run_question(pipeline, config_name, question)
             print(f" {_status(record)}  ({record['latency_seconds']:.2f}s)")
         record["retrieval_k"] = k
+        record["query_rewriting"] = use_query_rewriting
+        record["reranking"] = use_reranking
         rows.append(record)
     print()
     return rows
@@ -575,6 +647,8 @@ def main() -> None:
         print(f"Invalid --k {args.k}: retrieval depth must be a positive integer.")
         return
     k = args.k if args.k is not None else DEFAULT_K
+    use_query_rewriting = args.query_rewriting
+    use_reranking = args.reranking
 
     configs = resolve_configs(args)
     if not configs:
@@ -587,27 +661,46 @@ def main() -> None:
     total_configs = len(configs)
     print(
         f"Gold set: {len(GOLD_SET)} questions | retrieval k={k} | "
-        f"Configs to run ({total_configs}): {', '.join(configs)}\n"
+        f"query rewriting {'ON' if use_query_rewriting else 'OFF'} | "
+        f"reranking {'ON' if use_reranking else 'OFF'} | "
+        f"Configs to run ({total_configs}): {', '.join(configs)}"
     )
+    if use_query_rewriting:
+        print(
+            "Note: query rewriting adds one extra LLM call per question, so "
+            "expect roughly +1-3s latency per question versus "
+            "--no-query-rewriting runs."
+        )
+    print()
 
     all_rows: List[Dict] = []
     summaries: List[Dict] = []
     skipped: List[Tuple[str, str]] = []
 
     for index, config_name in enumerate(configs, start=1):
-        rows = run_config(config_name, index, total_configs, k)
+        rows = run_config(
+            config_name, index, total_configs, k, use_query_rewriting, use_reranking
+        )
         if rows is None:
             skipped.append((config_name, "index not built"))
             continue
         all_rows.extend(rows)
-        summaries.append(summarize(config_name, rows, k))
+        summaries.append(
+            summarize(config_name, rows, k, use_query_rewriting, use_reranking)
+        )
 
     # Write outputs even if partial, so a long/interrupted run still logs data.
-    # Filenames carry the retrieval depth so different --k runs don't overwrite
-    # each other and are clearly labeled.
-    results_csv = RESULTS_DIR / f"results_{timestamp}_k{k}.csv"
-    summary_csv = RESULTS_DIR / f"summary_{timestamp}_k{k}.csv"
-    results_jsonl = RESULTS_DIR / f"results_{timestamp}_k{k}.jsonl"
+    # Filenames carry the retrieval depth plus a tag for any retrieval stage
+    # that deviates from the production defaults (rewriting off, reranking on),
+    # so different sweeps don't overwrite each other and are clearly labeled.
+    # (Runs from before the defaults flipped used _noqr instead; the
+    # query_rewriting/reranking columns inside each file are authoritative.)
+    variant = ("_qr" if use_query_rewriting else "") + (
+        "" if use_reranking else "_norr"
+    )
+    results_csv = RESULTS_DIR / f"results_{timestamp}_k{k}{variant}.csv"
+    summary_csv = RESULTS_DIR / f"summary_{timestamp}_k{k}{variant}.csv"
+    results_jsonl = RESULTS_DIR / f"results_{timestamp}_k{k}{variant}.jsonl"
 
     if all_rows:
         write_results_csv(results_csv, all_rows)
@@ -616,7 +709,11 @@ def main() -> None:
         write_summary_csv(summary_csv, summaries)
 
     print("=" * 78)
-    print(f"EVAL SUMMARY  ({timestamp}, retrieval k={k})")
+    print(
+        f"EVAL SUMMARY  ({timestamp}, retrieval k={k}, "
+        f"query rewriting {'on' if use_query_rewriting else 'off'}, "
+        f"reranking {'on' if use_reranking else 'off'})"
+    )
     print("=" * 78)
     if summaries or skipped:
         print_summary_table(summaries, skipped)

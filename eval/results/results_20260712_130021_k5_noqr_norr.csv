@@ -1,0 +1,82 @@
+config,retrieval_k,query_rewriting,reranking,question_id,category,question,answer,passed,key_facts_hit,key_facts_total,needs_manual_review,sources_count,sources,latency_seconds,error
+gemini_native,5,False,False,num-amazon-cash-fy2024,number,"How much cash, cash equivalents, and restricted cash did Amazon have at the end of fiscal 2024?","At the end of the fiscal year ended December 31, 2024, Amazon had $82,312 million in cash, cash equivalents, and restricted cash [1].",True,,,False,1,Amazon FY2025 p.60 (Amazon_10k_2025.pdf),98.227,
+gemini_native,5,False,False,num-amazon-netsales-fy2025,number,What was Amazon's total net sales for fiscal 2025?,"For the fiscal year ended December 31, 2025, Amazon's total net sales were $716,924 million [2].",True,,,False,1,Amazon FY2025 p.61 (Amazon_10k_2025.pdf),36.418,
+gemini_native,5,False,False,num-alphabet-revenue-fy2025,number,What was Alphabet's total revenue for fiscal 2025?,"For the fiscal year ended December 31, 2025, Alphabet's total revenues were $402,836 million [3].",True,,,False,1,Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf),51.889,
+gemini_native,5,False,False,num-microsoft-revenue-fy2025,number,What was Microsoft's total revenue for fiscal 2025?,"For the fiscal year ended June 30, 2025, Microsoft's total revenue was $281,724 million [1, 2, 3, 4].",True,,,False,4,Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.67 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.68 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.143 (Microsoft_10k_2025.pdf),28.325,
+gemini_native,5,False,False,num-amazon-aws-fy2025,number,What was Amazon's AWS segment revenue for fiscal 2025?,"For the fiscal year ended December 31, 2025, Amazon's AWS segment net sales (revenue) were $128,725 million [1, 4].",True,,,False,2,Amazon FY2025 p.109 (Amazon_10k_2025.pdf) | Amazon FY2025 p.43 (Amazon_10k_2025.pdf),7.695,
+gemini_native,5,False,False,num-amazon-cash-beginning-fy2024,number,"What was Amazon's cash, cash equivalents, and restricted cash at the BEGINNING of fiscal 2024?","Amazon's cash, cash equivalents, and restricted cash at the beginning of fiscal 2024 was $73,890 million [1].",True,,,False,1,Amazon FY2025 p.60 (Amazon_10k_2025.pdf),7.619,
+gemini_native,5,False,False,num-amazon-cash-end-fy2025,number,"What was Amazon's cash, cash equivalents, and restricted cash at the END of fiscal 2025?","At the end of fiscal 2025 (December 31, 2025), Amazon's cash, cash equivalents, and restricted cash was $90,106 million [1].",True,,,False,1,Amazon FY2025 p.60 (Amazon_10k_2025.pdf),5.77,
+gemini_native,5,False,False,num-amazon-opex-fy2024,number,What was Amazon's total operating expenses for fiscal 2024?,"Amazon's total operating expenses for fiscal 2024 were $569,366 million [1, 5].",True,,,False,2,Amazon FY2025 p.61 (Amazon_10k_2025.pdf) | Amazon FY2025 p.45 (Amazon_10k_2025.pdf),5.615,
+gemini_native,5,False,False,num-alphabet-netincome-fy2024,number,What was Alphabet's net income for fiscal 2024 (the prior-year comparative shown in the FY2025 filing)?,"For the fiscal year ended December 31, 2024, Alphabet's net income was $100,118 million [3, 4, 5].",True,,,False,3,Alphabet FY2025 p.51 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.33 (Alphabet_10k_2025.pdf),5.466,
+gemini_native,5,False,False,num-microsoft-opincome-fy2024,number,What was Microsoft's operating income for fiscal 2024 (the prior-year comparative in the FY2025 filing)?,"For the fiscal year ended June 30, 2024, Microsoft's operating income was $109,433 million [3].",True,,,False,1,Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf),6.849,
+gemini_native,5,False,False,cmp-revenue-sources,comparison,"Compare the main revenue sources for Amazon, Alphabet, and Microsoft.","Based on the provided excerpts, here is a comparison of the main revenue sources for Amazon, Alphabet, and Microsoft for their most recent fiscal year (fiscal 2025). Note that Microsoft's fiscal year ends on June 30, while Amazon's and Alphabet's end on December 31.
+
+**Amazon (For the fiscal year ended December 31, 2025)**
+Amazon reported total consolidated net sales of $716,924 million [5]. Its revenue is primarily driven by e-commerce and cloud computing, broken down as follows:
+*   **Online stores:** $269,287 million [5]
+*   **Third-party seller services:** $172,162 million [5]
+*   **AWS (Amazon Web Services):** $128,725 million [5]
+*   **Advertising services:** $68,635 million [5]
+*   **Subscription services:** $49,619 million [5]
+*   **Physical stores:** $22,561 million [5]
+*   **Other:** $5,935 million [5]
+
+**Alphabet (For the fiscal year ended December 31, 2025)**
+Alphabet reported total revenues of $402,836 million [3]. The vast majority of its revenue comes from advertising, with cloud and subscriptions making up the next largest portions:
+*   **Google advertising:** $294,691 million in total, which consists of Google Search & other ($224,532 million), YouTube ads ($40,367 million), and Google Network ($29,792 million) [3]
+*   **Google Cloud:** $58,705 million [3]
+*   **Google subscriptions, platforms, and devices:** $48,030 million [3]
+*   **Other Bets:** $1,537 million [3]
+
+**Microsoft (For the fiscal year ended June 30, 2025)**
+Microsoft reported total revenue of $281,724 million [1, 2]. Microsoft breaks down its revenue both by operating segment and by significant product/service offerings. 
+
+By significant product and service offerings, its main sources were:
+*   **Server products and cloud services:** $98,435 million [1]
+*   **Microsoft 365 Commercial products and cloud services:** $87,767 million [1]
+*   **Gaming:** $23,455 million [1]
+*   **LinkedIn:** $17,812 million [1]
+*   **Windows and Devices:** $17,314 million [1]
+*   **Search and news advertising:** $13,878 million [1]
+*   **Dynamics products and cloud services:** $7,827 million [1]
+*   **Enterprise and partner services:** $7,760 million [1]
+*   **Microsoft 365 Consumer products and cloud services:** $7,404 million [1]
+
+By operating segment, Microsoft's revenue was distributed across:
+*   **Productivity and Business Processes:** $120,810 million [2]
+*   **Intelligent Cloud:** $106,265 million [2]
+*   **More Personal Computing:** $54,649 million [2]",,6,6,True,4,Amazon FY2025 p.111 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.61 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.143 (Microsoft_10k_2025.pdf),18.73,
+gemini_native,5,False,False,cmp-largest-cloud,comparison,"Which of the three companies has the largest cloud business by revenue, and what are the figures?","Based on the provided excerpts, **Microsoft** has the largest cloud business by revenue. The provided context does not contain any financial data for Amazon. 
+
+Here are the figures for the most recent reporting year (fiscal 2025) for the two companies with available data:
+
+*   **Microsoft:** For the fiscal year ended June 30, 2025, ""Microsoft Cloud"" revenue (which includes Microsoft 365 Commercial cloud, Azure and other cloud services, the commercial portion of LinkedIn, and Dynamics 365) was $168.9 billion [1]. Additionally, Microsoft's ""Intelligent Cloud"" segment specifically reported revenue of $106,265 million [3, 5].
+*   **Alphabet:** For the fiscal year ended December 31, 2025, ""Google Cloud"" revenue was $58,705 million [4].",,3,5,True,4,Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.143 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.68 (Microsoft_10k_2025.pdf) | Alphabet FY2025 p.88 (Alphabet_10k_2025.pdf),12.839,
+gemini_native,5,False,False,qual-cloud-competition,qualitative,How does each company describe competition in cloud services?,"Based on the provided excerpts, the companies describe competition in cloud services as follows:
+
+**Microsoft**
+*   **Competitive Landscape:** Microsoft states that its Azure cloud platform faces diverse competition from other cloud service providers and open source offerings [2]. The company notes that competitors are devoting significant resources to developing cloud-based strategies, and that pricing and delivery models are continually evolving [5]. Additionally, its cloud-based AI offerings compete with products from other hyperscalers, emerging competitors, and open source models [2]. 
+*   **Competitive Advantages:** Microsoft believes Azure's competitive advantage lies in its ability to enable a hybrid cloud (integrating existing datacenters with the public cloud), its ability to run at a massive scale, and its broad portfolio of identity and security solutions [2]. 
+*   **Risks and Execution:** Microsoft highlights that its focus on cloud and AI services presents competitive and execution risks. The company is incurring significant costs to build and maintain cloud infrastructure, which reduces operating margins. To succeed, Microsoft states it must bring compelling products to market, ensure reliability and security, attract third-party developers, and make its cloud services platform-agnostic [5].
+
+**Alphabet (Google)**
+*   **Competitive Landscape:** Alphabet notes that within Google Cloud, competitors are ""rapidly developing and deploying cloud-based services and capacity"" [4]. Similar to Microsoft, Alphabet observes that pricing and delivery models are competitive and constantly evolving [4].
+*   **Competitor Profile:** The company faces intense competition from a wide range of rivals, from emerging start-ups to large, established companies. Alphabet notes that some competitors have longer operating histories and well-established relationships, allowing them to invest heavily in technical infrastructure, research and development, and talent [4]. 
+*   **Strategic Response:** To remain competitive, Alphabet states it must accurately anticipate technological developments and continue investing significant resources into its own technical infrastructure, such as the development of custom TPUs (Tensor Processing Units) [4].
+
+**Amazon**
+The provided excerpts do not contain information regarding Amazon or how it describes competition in cloud services.",,0,0,True,3,Microsoft FY2025 p.13 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.31 (Microsoft_10k_2025.pdf) | Alphabet FY2025 p.11 (Alphabet_10k_2025.pdf),12.451,
+gemini_native,5,False,False,qual-china-risk,qualitative,What risks related to operations in China do these companies mention?,"Based on the provided excerpts, Amazon details several risks related to its operations in China, while the excerpts for Microsoft do not specifically mention China. No excerpts were provided for Alphabet. 
+
+**Amazon** mentions the following risks regarding its operations in China:
+
+*   **Regulatory and Licensing Restrictions:** The People’s Republic of China (PRC) restricts foreign investment and operations in sectors such as the internet, IT infrastructure, data centers, retail, delivery, and media [3]. To comply, Amazon relies on contractual relationships with third parties that hold PRC licenses to provide certain technology services [1]. 
+*   **Legal and Structural Uncertainty:** There are substantial uncertainties regarding how PRC laws are interpreted, and the government could take a view contrary to Amazon's [1]. The PRC may implement changes to regulatory or licensing requirements, and Amazon could face an inability to access sufficient funding or enforce its contractual relationships [1]. 
+*   **Penalties and Operational Disruption:** Violating existing or future laws, or facing changes in how laws are interpreted, could result in fines, financial penalties, revoked licenses, forced restructuring, or being forced to shut down operations entirely [1].
+*   **Reliance on Chinese Sellers and Suppliers:** China-based sellers account for a significant portion of Amazon's third-party seller services and advertising revenues, and China-based suppliers provide a significant portion of its components and finished goods [1]. 
+*   **Trade, Geopolitical, and Economic Factors:** Because of its reliance on Chinese sellers and suppliers, Amazon's operating results could be adversely affected by regulatory and trade restrictions, tariff policy changes, trade disputes, data protection and cybersecurity laws, economic factors, and security issues [1]. Amazon also specifically highlights risks from political conflicts involving China, as well as labor or trade disputes and restrictive governmental actions that impact the company, its customers, sellers, and suppliers in China [2].
+
+**Microsoft** 
+The provided excerpts for Microsoft discuss general risks related to international growth, such as emerging nationalist and protectionist trends, trade policy changes, tariffs, and export controls, but they do not specifically mention China [4, 5].",,0,0,True,5,Amazon FY2025 p.12 (Amazon_10k_2025.pdf) | Amazon FY2025 p.13 (Amazon_10k_2025.pdf) | Amazon FY2025 p.18 (Amazon_10k_2025.pdf) | Microsoft FY2025 p.51 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.46 (Microsoft_10k_2025.pdf),16.441,
+gemini_native,5,False,False,bnd-projected-fy2027,boundary,What is each company's projected revenue for fiscal 2027?,"Based on the provided excerpts, there is no information available regarding projected revenue for fiscal 2027 for any of the companies.",True,,,False,0,,5.565,
+gemini_native,5,False,False,bnd-tesla-revenue,boundary,What was Tesla's total revenue according to these filings?,"Based on the provided excerpts, there is no information available regarding Tesla's total revenue. The context only contains financial data for Microsoft.",True,,,False,0,,4.41,

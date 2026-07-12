@@ -1,0 +1,61 @@
+config,retrieval_k,query_rewriting,reranking,question_id,category,question,answer,passed,key_facts_hit,key_facts_total,needs_manual_review,sources_count,sources,latency_seconds,error
+gemini_native,5,False,True,num-amazon-cash-fy2024,number,"How much cash, cash equivalents, and restricted cash did Amazon have at the end of fiscal 2024?","At the end of the fiscal year ended December 31, 2024, Amazon had $82,312 million in cash, cash equivalents, and restricted cash [1].",True,,,False,1,Amazon FY2025 p.60 (Amazon_10k_2025.pdf),7.172,
+gemini_native,5,False,True,num-amazon-netsales-fy2025,number,What was Amazon's total net sales for fiscal 2025?,"For the fiscal year ended December 31, 2025, Amazon's total net sales were $716,924 million [1, 5].",True,,,False,2,Amazon FY2025 p.111 (Amazon_10k_2025.pdf) | Amazon FY2025 p.61 (Amazon_10k_2025.pdf),4.512,
+gemini_native,5,False,True,num-alphabet-revenue-fy2025,number,What was Alphabet's total revenue for fiscal 2025?,"Alphabet's total revenues were $402,836 million for the fiscal year ended December 31, 2025 [2].",True,,,False,1,Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf),4.707,
+gemini_native,5,False,True,num-microsoft-revenue-fy2025,number,What was Microsoft's total revenue for fiscal 2025?,"For the fiscal year ended June 30, 2025, Microsoft's total revenue was $281,724 million [1, 4].",True,,,False,2,Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.67 (Microsoft_10k_2025.pdf),5.219,
+gemini_native,5,False,True,num-amazon-aws-fy2025,number,What was Amazon's AWS segment revenue for fiscal 2025?,"For the fiscal year ended December 31, 2025, Amazon's AWS segment net sales (revenue) were $128,725 million [1].",True,,,False,1,Amazon FY2025 p.109 (Amazon_10k_2025.pdf),4.747,
+gemini_native,5,False,True,num-amazon-cash-beginning-fy2024,number,"What was Amazon's cash, cash equivalents, and restricted cash at the BEGINNING of fiscal 2024?","At the beginning of fiscal 2024 (for the fiscal year ended December 31, 2024), Amazon's cash, cash equivalents, and restricted cash was $73,890 million [1].",True,,,False,1,Amazon FY2025 p.60 (Amazon_10k_2025.pdf),6.148,
+gemini_native,5,False,True,num-amazon-cash-end-fy2025,number,"What was Amazon's cash, cash equivalents, and restricted cash at the END of fiscal 2025?","At the end of fiscal 2025 (for the year ended December 31, 2025), Amazon's cash, cash equivalents, and restricted cash was $90,106 million [1].",True,,,False,1,Amazon FY2025 p.60 (Amazon_10k_2025.pdf),6.465,
+gemini_native,5,False,True,num-amazon-opex-fy2024,number,What was Amazon's total operating expenses for fiscal 2024?,"Amazon's total operating expenses for fiscal 2024 were $569,366 million [1].",True,,,False,1,Amazon FY2025 p.61 (Amazon_10k_2025.pdf),4.524,
+gemini_native,5,False,True,num-alphabet-netincome-fy2024,number,What was Alphabet's net income for fiscal 2024 (the prior-year comparative shown in the FY2025 filing)?,"For the fiscal year ended December 31, 2024, Alphabet's net income was $100,118 million [2, 4].",True,,,False,2,Alphabet FY2025 p.82 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf),6.956,
+gemini_native,5,False,True,num-microsoft-opincome-fy2024,number,What was Microsoft's operating income for fiscal 2024 (the prior-year comparative in the FY2025 filing)?,"For the fiscal year ended June 30, 2024, Microsoft's total operating income was $109,433 million [1].",True,,,False,1,Microsoft FY2025 p.68 (Microsoft_10k_2025.pdf),7.052,
+gemini_native,5,False,True,cmp-revenue-sources,comparison,"Compare the main revenue sources for Amazon, Alphabet, and Microsoft.","Based on the provided excerpts, here is a comparison of the main revenue sources for Microsoft, Alphabet, and Amazon. 
+
+**Microsoft (for the fiscal year ended June 30, 2025)**
+Microsoft reported total revenue of $281,724 million [1]. The company classifies its revenue by significant product and service offerings, with its largest sources being:
+*   **Server products and cloud services:** $98,435 million [1]
+*   **Microsoft 365 Commercial products and cloud services:** $87,767 million [1]
+*   **Gaming:** $23,455 million [1]
+*   **LinkedIn:** $17,812 million [1]
+*   **Windows and Devices:** $17,314 million [1]
+*   **Search and news advertising:** $13,878 million [1]
+*   **Dynamics products and cloud services:** $7,827 million [1]
+*   **Enterprise and partner services:** $7,760 million [1]
+*   **Microsoft 365 Consumer products and cloud services:** $7,404 million [1]
+
+Microsoft also tracks a composite metric called ""Microsoft Cloud revenue"" (which includes Microsoft 365 Commercial cloud, Azure, the commercial portion of LinkedIn, and Dynamics 365), which totaled $168.9 billion [1].
+
+**Alphabet (for the fiscal year ended December 31, 2025)**
+Alphabet reported total revenues of $402,836 million [4]. Its main revenue sources are divided into two primary categories:
+*   **Google Services:** Generates revenue primarily through performance and brand advertising on Google Search & other properties, YouTube, and Google Network partners' properties [2]. Beyond advertising, it generates revenue from consumer subscriptions (such as YouTube TV, YouTube Music and Premium, NFL Sunday Ticket, and Google One), platforms (Google Play apps and in-app purchases), and devices (the Pixel family) [2].
+*   **Google Cloud:** Generates revenue primarily from consumption-based fees and subscriptions for infrastructure, platform, applications, and other cloud services (including Google Cloud Platform and Google Workspace) [2].
+
+**Amazon (for the fiscal year ended December 31, 2025)**
+The provided context does not include Amazon's total revenue figures, but it outlines the following main revenue sources:
+*   **AWS (Amazon Web Services):** Global sales of compute, storage, database, and other services, which are recognized based on customer usage (on-demand) or as a fixed quantity over a specified term [3].
+*   **Subscription services:** Fees associated with Amazon Prime memberships and access to digital content, including digital video, audiobooks, digital music, e-books, and other non-AWS subscription services [3].
+*   **Other:** Sales related to healthcare services, licensing and distribution of video content, shipping services, and co-branded credit card agreements [3].",,5,6,True,4,Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.6 (Alphabet_10k_2025.pdf) | Amazon FY2025 p.69 (Amazon_10k_2025.pdf),19.685,
+gemini_native,5,False,True,cmp-largest-cloud,comparison,"Which of the three companies has the largest cloud business by revenue, and what are the figures?","Based on the provided excerpts, **Microsoft** has the largest cloud business by revenue. 
+
+Here are the cloud revenue figures for each company for their most recent fiscal year (2025):
+
+*   **Microsoft:** ""Microsoft Cloud"" revenue was $168.9 billion for the fiscal year ended June 30, 2025 [1]. 
+*   **Amazon:** AWS (Amazon Web Services) net sales were $128,725 million for the fiscal year ended December 31, 2025 [3].
+*   **Alphabet:** ""Google Cloud"" revenues were $58,705 million for the fiscal year ended December 31, 2025 [2]. 
+
+*(Note: Microsoft's fiscal year ends on June 30, while Amazon's and Alphabet's fiscal years end on December 31).*",,5,5,True,3,Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Amazon FY2025 p.111 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.88 (Alphabet_10k_2025.pdf),9.376,
+gemini_native,5,False,True,qual-cloud-competition,qualitative,How does each company describe competition in cloud services?,"Based on the provided excerpts, the companies describe competition in cloud services as follows:
+
+* **Alphabet:** Alphabet states that its competitors are ""rapidly developing and deploying cloud-based services and capacity"" [2]. The company also notes that pricing and delivery models in the cloud space are ""competitive and constantly evolving"" [2]. 
+* **Amazon:** The provided excerpts do not contain information on how Amazon describes competition in cloud services. 
+* **Microsoft:** The provided excerpts do not explicitly describe competition specifically for cloud services, though they do note that Microsoft competes with commercial software vendors that offer hosting, database, and e-business servers [1].",,0,0,True,2,Alphabet FY2025 p.11 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.14 (Microsoft_10k_2025.pdf),9.911,
+gemini_native,5,False,True,qual-china-risk,qualitative,What risks related to operations in China do these companies mention?,"Based on the provided excerpts, only Amazon mentions risks related to its operations in China. Amazon identifies the following risks:
+
+*   **Regulatory and Legal Uncertainty:** Amazon provides certain technology services in China through contractual relationships with third parties holding PRC licenses. The PRC may implement changes in regulatory or licensing requirements that could impact these structures. There are substantial uncertainties regarding how PRC laws are interpreted, and the government could take a view contrary to Amazon's [1].
+*   **Operational and Enforcement Risks:** Amazon's Chinese businesses may be unable to continue operating if they cannot access sufficient funding or enforce their contractual relationships in China [1]. 
+*   **Penalties and Shutdowns:** Violations of existing or future PRC laws, or changes in how they are interpreted, could result in fines, financial penalties, revoked licenses, forced restructuring, or being forced to shut down operations entirely [1].
+*   **Supply Chain and Seller Reliance:** China-based sellers and suppliers account for significant portions of Amazon's third-party seller services, advertising revenues, components, and finished goods. Amazon's operating results could be adversely affected if these sellers and suppliers are negatively impacted by regulatory and trade restrictions, tariff policy changes, trade disputes, data protection and cybersecurity laws, economic factors, geopolitical events, or security issues [1]. 
+
+The provided excerpts for Alphabet and Microsoft do not mention risks specifically related to operations in China.",,0,0,True,1,Amazon FY2025 p.13 (Amazon_10k_2025.pdf),10.584,
+gemini_native,5,False,True,bnd-projected-fy2027,boundary,What is each company's projected revenue for fiscal 2027?,"Based on the provided excerpts, there is no information regarding projected revenue for fiscal 2027 for Alphabet, Amazon, or Microsoft.",True,,,False,0,,5.911,
+gemini_native,5,False,True,bnd-tesla-revenue,boundary,What was Tesla's total revenue according to these filings?,"Based on the provided excerpts, there is no information available regarding Tesla's total revenue. The context only includes financial data for Microsoft, Amazon, and Alphabet.",True,,,False,0,,4.45,
