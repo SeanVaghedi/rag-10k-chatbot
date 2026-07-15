@@ -1,0 +1,162 @@
+config,retrieval_k,query_rewriting,reranking,question_id,category,question,answer,passed,key_facts_hit,key_facts_total,needs_manual_review,sources_count,sources,latency_seconds,error
+gemini_native,10,True,True,num-amazon-cash-fy2024,number,"How much cash, cash equivalents, and restricted cash did Amazon have at the end of fiscal 2024?","At the end of fiscal 2024 (December 31, 2024), Amazon had $82,312 million in cash, cash equivalents, and restricted cash [1, 8].",True,,,False,2,Amazon FY2025 p.60 (Amazon_10k_2025.pdf) | Amazon FY2025 p.87 (Amazon_10k_2025.pdf),15.047,
+gemini_native,10,True,True,num-amazon-netsales-fy2025,number,What was Amazon's total net sales for fiscal 2025?,"Amazon's total net sales for the fiscal year ended December 31, 2025, were $716,924 million [3].",True,,,False,1,Amazon FY2025 p.61 (Amazon_10k_2025.pdf),9.946,
+gemini_native,10,True,True,num-alphabet-revenue-fy2025,number,What was Alphabet's total revenue for fiscal 2025?,"Alphabet's total revenue for the fiscal year ended December 31, 2025, was $402,836 million (or $402.8 billion) [1, 2, 8].",True,,,False,3,Alphabet FY2025 p.34 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.33 (Alphabet_10k_2025.pdf),12.551,
+gemini_native,10,True,True,num-microsoft-revenue-fy2025,number,What was Microsoft's total revenue for fiscal 2025?,"Microsoft's total revenue for the fiscal year ended June 30, 2025, was $281,724 million [1, 6].",True,,,False,2,Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf),11.517,
+gemini_native,10,True,True,num-amazon-aws-fy2025,number,What was Amazon's AWS segment revenue for fiscal 2025?,"For the fiscal year ended December 31, 2025, Amazon's AWS segment net sales (revenue) were $128,725 million [1, 5].",True,,,False,2,Amazon FY2025 p.109 (Amazon_10k_2025.pdf) | Amazon FY2025 p.43 (Amazon_10k_2025.pdf),12.761,
+gemini_native,10,True,True,num-amazon-cash-beginning-fy2024,number,"What was Amazon's cash, cash equivalents, and restricted cash at the BEGINNING of fiscal 2024?","Amazon's cash, cash equivalents, and restricted cash at the beginning of fiscal 2024 was $73,890 million [1].",True,,,False,1,Amazon FY2025 p.60 (Amazon_10k_2025.pdf),18.764,
+gemini_native,10,True,True,num-amazon-cash-end-fy2025,number,"What was Amazon's cash, cash equivalents, and restricted cash at the END of fiscal 2025?","Amazon's cash, cash equivalents, and restricted cash at the end of the fiscal year ended December 31, 2025, was $90,106 million [1, 10].",True,,,False,2,Amazon FY2025 p.60 (Amazon_10k_2025.pdf) | Amazon FY2025 p.87 (Amazon_10k_2025.pdf),12.8,
+gemini_native,10,True,True,num-amazon-opex-fy2024,number,What was Amazon's total operating expenses for fiscal 2024?,"For the fiscal year ended December 31, 2024, Amazon's total operating expenses were $569,366 million [1, 10].",True,,,False,2,Amazon FY2025 p.61 (Amazon_10k_2025.pdf) | Amazon FY2025 p.45 (Amazon_10k_2025.pdf),11.703,
+gemini_native,10,True,True,num-alphabet-netincome-fy2024,number,What was Alphabet's net income for fiscal 2024 (the prior-year comparative shown in the FY2025 filing)?,"Based on the consolidated statements of income in the FY2025 filing, Alphabet's net income for the fiscal year ended December 31, 2024, was $100,118 million [2, 4, 5].",True,,,False,3,Alphabet FY2025 p.82 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.53 (Alphabet_10k_2025.pdf),14.179,
+gemini_native,10,True,True,num-microsoft-opincome-fy2024,number,What was Microsoft's operating income for fiscal 2024 (the prior-year comparative in the FY2025 filing)?,"For the fiscal year ended June 30, 2024, Microsoft's operating income was $109,433 million [1, 5, 10].",True,,,False,3,Microsoft FY2025 p.68 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.143 (Microsoft_10k_2025.pdf),15.005,
+gemini_native,10,True,True,calc-aws-growth-fy2025,calculation,What was Amazon's AWS revenue growth rate from fiscal 2024 to fiscal 2025?,"For the fiscal year ended December 31, 2025, Amazon's AWS net sales were $128,725 million, compared to $107,556 million for the fiscal year ended December 31, 2024 [1, 9]. 
+
+The calculated AWS revenue growth rate is:
+($128,725 million - $107,556 million) / $107,556 million = 19.7% [1, 9].
+
+Additionally, Amazon's filing explicitly reports this year-over-year AWS sales growth as 20% [4, 9].",True,,,False,3,Amazon FY2025 p.111 (Amazon_10k_2025.pdf) | Amazon FY2025 p.43 (Amazon_10k_2025.pdf) | Amazon FY2025 p.45 (Amazon_10k_2025.pdf),19.523,
+gemini_native,10,True,True,calc-amazon-netsales-change-fy2025,calculation,"By how much did Amazon's total net sales increase from fiscal 2024 to fiscal 2025, in dollars?","Amazon's total net sales increased by $78,965 million from fiscal 2024 to fiscal 2025. This is calculated as fiscal 2025 total net sales of $716,924 million minus fiscal 2024 total net sales of $637,959 million [4].",True,,,False,1,Amazon FY2025 p.61 (Amazon_10k_2025.pdf),15.383,
+gemini_native,10,True,True,calc-alphabet-revenue-growth-fy2025,calculation,What was Alphabet's revenue growth rate from fiscal 2024 to fiscal 2025?,"Alphabet's total revenues were $350,018 million in fiscal 2024 and $402,836 million in fiscal 2025 [1, 9]. 
+
+To find the revenue growth rate, the calculation is:
+($402,836 million - $350,018 million) / $350,018 million = 15.1% [1, 9].",True,,,False,2,Alphabet FY2025 p.61 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf),13.571,
+gemini_native,10,True,True,calc-microsoft-opmargin-fy2025,calculation,What was Microsoft's operating margin for fiscal 2025?,"For the fiscal year ended June 30, 2025, Microsoft's operating margin was 45.6%. This is calculated by dividing the company's operating income of $128,528 million by its total revenue of $281,724 million [5].",True,,,False,1,Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf),16.873,
+gemini_native,10,True,True,calc-amazon-opmargin-fy2025,calculation,What was Amazon's operating margin for fiscal 2025?,"Amazon's operating margin for the fiscal year ended December 31, 2025, was 11.2%. This is calculated as operating income of $79,975 million divided by total net sales of $716,924 million [1].",True,,,False,1,Amazon FY2025 p.61 (Amazon_10k_2025.pdf),11.596,
+gemini_native,10,True,True,calc-microsoft-opincome-change-fy2025,calculation,"How much did Microsoft's operating income increase from fiscal 2024 to fiscal 2025, in dollars?","Microsoft's operating income increased by $19.1 billion (or $19,095 million) from fiscal 2024 to fiscal 2025 [1]. Specifically, operating income grew from $109,433 million in fiscal 2024 to $128,528 million in fiscal 2025 [1, 10].",True,,,False,2,Microsoft FY2025 p.67 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf),14.755,
+gemini_native,10,True,True,calc-alphabet-netincome-growth-fy2025,calculation,What was Alphabet's net income growth rate from fiscal 2024 to fiscal 2025?,"Alphabet's net income was $100,118 million in fiscal 2024 and $132,170 million in fiscal 2025 [1]. 
+
+The net income growth rate from fiscal 2024 to fiscal 2025 is calculated as:
+($132,170 million - $100,118 million) / $100,118 million = 32.0% [1].",True,,,False,1,Alphabet FY2025 p.50 (Alphabet_10k_2025.pdf),12.63,
+gemini_native,10,True,True,calc-microsoft-grossmargin-fy2025,calculation,What was Microsoft's gross margin percentage for fiscal 2025?,"For the fiscal year ended June 30, 2025, Microsoft's gross margin percentage was 68.8%. This is calculated by dividing the gross margin of $193,893 million by the total revenue of $281,724 million [1, 4].",True,,,False,2,Microsoft FY2025 p.67 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf),11.827,
+gemini_native,10,True,True,cmp-revenue-sources,comparison,"Compare the main revenue sources for Amazon, Alphabet, and Microsoft.","Based on the provided 10-K filings for fiscal year 2025, here is a comparison of the main revenue sources for Amazon, Alphabet, and Microsoft. Note that Microsoft's fiscal year ended on June 30, 2025, while Amazon's and Alphabet's fiscal years ended on December 31, 2025 [1, 4, 5].
+
+**Amazon (Fiscal Year Ended December 31, 2025)**
+Amazon reported total consolidated net sales of $716,924 million [4]. Its revenue is categorized by the following groups of similar products and services:
+*   **Online stores:** $269,287 million [4]
+*   **Third-party seller services:** $172,162 million [4]
+*   **AWS (Amazon Web Services):** $128,725 million [4]
+*   **Advertising services:** $68,635 million [4]
+*   **Subscription services:** $49,619 million [4]
+*   **Physical stores:** $22,561 million [4]
+*   **Other:** $5,935 million [4]
+
+**Alphabet (Fiscal Year Ended December 31, 2025)**
+Alphabet reported total revenues of $402,836 million [10]. Its revenue is primarily driven by advertising and cloud services, disaggregated as follows:
+*   **Google Services:** $342,721 million total, which consists of:
+    *   *Google Search & other:* $224,532 million [10]
+    *   *Google subscriptions, platforms, and devices:* $48,030 million [10]
+    *   *YouTube ads:* $40,367 million [10]
+    *   *Google Network:* $29,792 million [10]
+*   **Google Cloud:** $58,705 million [10]
+*   **Other Bets:** $1,537 million [10]
+*(Note: Alphabet's total revenue also includes $127 million in hedging losses [10]).*
+
+**Microsoft (Fiscal Year Ended June 30, 2025)**
+Microsoft reported total revenue of $281,724 million [1]. Its revenue is classified by the following significant product and service offerings:
+*   **Server products and cloud services:** $98,435 million [1]
+*   **Microsoft 365 Commercial products and cloud services:** $87,767 million [1]
+*   **Gaming:** $23,455 million [1]
+*   **LinkedIn:** $17,812 million [1]
+*   **Windows and Devices:** $17,314 million [1]
+*   **Search and news advertising:** $13,878 million [1]
+*   **Dynamics products and cloud services:** $7,827 million [1]
+*   **Enterprise and partner services:** $7,760 million [1]
+*   **Microsoft 365 Consumer products and cloud services:** $7,404 million [1]
+*   **Other:** $72 million [1]",,6,6,True,4,Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Amazon FY2025 p.111 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.33 (Alphabet_10k_2025.pdf) | Alphabet FY2025 p.61 (Alphabet_10k_2025.pdf),30.056,
+gemini_native,10,True,True,cmp-largest-cloud,comparison,"Which of the three companies has the largest cloud business by revenue, and what are the figures?","Microsoft has the largest cloud business by revenue among the three companies [1, 2, 5]. 
+
+The specific cloud revenue figures for each company's fiscal year 2025 are as follows:
+* **Microsoft:** $168.9 billion in ""Microsoft Cloud revenue"" for the fiscal year ended June 30, 2025 [1].
+* **Amazon:** $128,725 million in AWS net sales for the fiscal year ended December 31, 2025 [5].
+* **Alphabet:** $58,705 million in Google Cloud revenues for the fiscal year ended December 31, 2025 [2].",,5,5,True,3,Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf) | Alphabet FY2025 p.88 (Alphabet_10k_2025.pdf) | Amazon FY2025 p.111 (Amazon_10k_2025.pdf),18.783,
+gemini_native,10,True,True,qual-cloud-competition,qualitative,How does each company describe competition in cloud services?,"Based on the provided excerpts, the companies describe competition in cloud services as follows:
+
+**Alphabet**
+Alphabet notes that competitors are rapidly developing and deploying cloud-based services and capacity [5]. The company states that pricing and delivery models are competitive and constantly evolving [5]. Its competitors range from large, established companies to emerging start-ups, some of which have longer operating histories, well-established relationships, and the ability to invest heavily in technical infrastructure, research and development, and talent [5]. 
+
+**Amazon**
+Amazon describes its worldwide marketplace as rapidly evolving and intensely competitive [9]. Its competitors include companies that provide information technology services or products, such as on-premises or cloud-based infrastructure and artificial intelligence tools [9]. Amazon notes that some competitors may have greater resources, longer histories, more customers, and greater brand recognition, which allows them to adopt more aggressive pricing and devote more resources to technology and infrastructure [9].
+
+**Microsoft**
+Microsoft states that its cloud platform, Azure, faces diverse competition from cloud service providers and open source offerings [8]. Its AI offerings compete with products from hyperscalers, emerging competitors, and open source offerings, while its Azure Security offerings compete with providers in the cybersecurity and cloud security space [8]. Microsoft highlights its competitive advantages as its ability to enable a hybrid cloud (integrating existing datacenters with its public cloud), its ability to run at a massive scale, and its broad portfolio of identity and security solutions [8].",,0,0,True,3,Alphabet FY2025 p.11 (Alphabet_10k_2025.pdf) | Amazon FY2025 p.6 (Amazon_10k_2025.pdf) | Microsoft FY2025 p.13 (Microsoft_10k_2025.pdf),20.086,
+gemini_native,10,True,True,qual-china-risk,qualitative,What risks related to operations in China do these companies mention?,"Based on the provided excerpts, only Amazon explicitly mentions risks related to operations in China. These risks include:
+
+*   **Regulatory and Legal Uncertainties:** Amazon provides certain technology services in China through contractual relationships with third parties that hold PRC licenses. The PRC government could change regulatory or licensing requirements, or interpret laws contrary to Amazon's views. Violations or changes in interpretation could result in fines, financial penalties, revoked licenses, forced restructuring, or shutting down operations entirely [1].
+*   **Contractual and Funding Risks:** Amazon's Chinese businesses may be unable to continue operating if they cannot access sufficient funding or enforce their contractual relationships [1].
+*   **Reliance on Chinese Sellers and Suppliers:** China-based sellers account for a significant portion of Amazon's third-party seller services and advertising revenues, and China-based suppliers provide a significant portion of its components and finished goods [1]. 
+*   **Geopolitical and Trade Disruptions:** Because of its reliance on Chinese sellers and suppliers, Amazon's operating results could be adversely affected by regulatory and trade restrictions, tariff policy changes, trade disputes, data protection and cybersecurity laws, and economic factors [1]. Furthermore, geopolitical events, security issues (including political conflicts involving China), and labor or trade disputes (including restrictive governmental actions impacting Amazon, its customers, sellers, and suppliers in China) pose significant risks [1, 7]. 
+
+The provided excerpts for Microsoft and Alphabet do not explicitly mention risks specifically related to operations in China.",,0,0,True,2,Amazon FY2025 p.13 (Amazon_10k_2025.pdf) | Amazon FY2025 p.18 (Amazon_10k_2025.pdf),23.921,
+gemini_native,10,True,True,bnd-projected-fy2027,boundary,What is each company's projected revenue for fiscal 2027?,"Based on the provided excerpts, there is no information regarding projected revenue for fiscal 2027 for Alphabet, Amazon, or Microsoft. The context only provides historical revenue data up to fiscal 2025 for these companies.",True,,,False,0,,16.4,
+gemini_native,10,True,True,bnd-tesla-revenue,boundary,What was Tesla's total revenue according to these filings?,"Based on the provided excerpts, there is no information available regarding Tesla's total revenue. The context only includes financial data for Microsoft, Amazon, and Alphabet.",True,,,False,0,,10.67,
+gemini_native,10,True,True,hard-tax-diff,hard,"Using the effective tax rate reconciliation in each 10-K, which of Amazon, Alphabet, and Microsoft had the largest gap between the 21% U.S. federal statutory tax rate and its effective tax rate in the most recent fiscal year? Give each company's effective tax rate, and the largest reconciling item each company discloses.","Based on the provided excerpts for the most recent fiscal year (FY2025), **Alphabet** had the largest gap between the 21.0% U.S. federal statutory tax rate and its effective tax rate, with a difference of 4.2 percentage points [1]. 
+
+Here is the breakdown for each company:
+
+*   **Alphabet** (for the fiscal year ended December 31, 2025): 
+    *   **Effective tax rate:** 16.8% (a gap of 4.2 percentage points from the 21.0% statutory rate) [1].
+    *   **Largest reconciling item:** ""Foreign-derived intangible income deduction,"" which impacted the rate by (2.5)% or $(3,931) million [1].
+*   **Microsoft** (for the fiscal year ended June 30, 2025): 
+    *   **Effective tax rate:** 17.6% (a gap of 3.4 percentage points) [3].
+    *   **Largest reconciling item:** Tied in absolute percentage terms, the largest items were ""Foreign earnings taxed at lower rates"" at (1.5)% and ""State income taxes, net of federal benefit"" at 1.5% [3].
+*   **Amazon** (for the fiscal year ended December 31, 2025): 
+    *   **Effective tax rate:** 19.6% (a gap of 1.4 percentage points) [6].
+    *   **Largest reconciling item:** Tied at 2.5% in absolute percentage terms, the largest items were ""State and local income taxes, net of federal effect"" at 2.5% ($2,455 million) and ""Research and development tax credits"" at (2.5)% ($(2,403) million) [6].",True,,,False,3,Alphabet FY2025 p.85 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.125 (Microsoft_10k_2025.pdf) | Amazon FY2025 p.105 (Amazon_10k_2025.pdf),29.482,
+gemini_native,10,True,True,hard-rd-intensity,hard,"For the most recent fiscal year, what was research and development spending as a percentage of total revenue for Amazon, Alphabet, and Microsoft, ranked from highest to lowest? For Amazon, use its 'technology and infrastructure' expense line, which contains its R&D spending.","Based on the provided excerpts for the most recent fiscal year (FY2025), here is the research and development (or equivalent) spending as a percentage of total revenue for Amazon, Alphabet, and Microsoft, ranked from highest to lowest:
+
+**1. Amazon: 15.1%**
+For the fiscal year ended December 31, 2025, Amazon reported ""Technology and infrastructure"" expenses of $108,521 million and total net sales of $716,924 million [5]. 
+*Calculation: $108,521 million / $716,924 million = 15.1%* [5].
+
+**2. Alphabet: 15.0%**
+For the fiscal year ended December 31, 2025, Alphabet reported research and development expenses of $61,087 million, which represented 15% of its revenues [1].
+
+**3. Microsoft: 12.0%**
+For the fiscal year ended June 30, 2025, Microsoft reported research and development expenses of $32,488 million, which represented 12% of its revenue [7].",False,,,False,3,Amazon FY2025 p.61 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.36 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.70 (Microsoft_10k_2025.pdf),21.811,
+gemini_native,10,True,True,hard-cloud-margin,hard,"What was the operating margin of Amazon's AWS segment, Alphabet's Google Cloud segment, and Microsoft's Intelligent Cloud segment in the most recent fiscal year? Rank the three cloud businesses from highest to lowest operating margin, with the margin percentages.","Based on the provided excerpts, here are the operating margins for the cloud segments of Microsoft and Alphabet for their most recent fiscal years. The provided context does not contain the segment revenue or operating income for Amazon's AWS segment, so its operating margin cannot be calculated.
+
+**1. Microsoft (Intelligent Cloud)**
+*   **Operating Margin:** **42.0%**
+*   **Calculation:** For the fiscal year ended June 30, 2025, Intelligent Cloud operating income of $44,589 million divided by revenue of $106,265 million [9].
+
+**2. Alphabet (Google Cloud)**
+*   **Operating Margin:** **23.7%**
+*   **Calculation:** For the fiscal year ended December 31, 2025, Google Cloud operating income of $13,910 million divided by revenues of $58,705 million [7].
+
+**Amazon (AWS)**
+*   **Operating Margin:** **Unavailable**
+*   **Reason:** The provided excerpts mention the AWS segment but do not contain its specific revenue or operating income figures for the fiscal year ended December 31, 2025 (or any prior year) [3, 4].",False,,,False,4,Microsoft FY2025 p.68 (Microsoft_10k_2025.pdf) | Alphabet FY2025 p.88 (Alphabet_10k_2025.pdf) | Amazon FY2025 p.107 (Amazon_10k_2025.pdf) | Amazon FY2025 p.61 (Amazon_10k_2025.pdf),22.237,
+gemini_native,10,True,True,hard-capex-trend,hard,"Which of Amazon, Alphabet, and Microsoft had the largest dollar increase in purchases of property and equipment (capital expenditures) from fiscal 2024 to fiscal 2025, per their cash flow statements? Give each company's figure for both years, and state the largest increase in dollars and as a percentage.","Based on the provided cash flow statements and financial excerpts, **Amazon** had the largest dollar increase in capital expenditures from fiscal 2024 to fiscal 2025. 
+
+Here is the breakdown for each company, including the required calculations:
+
+**Amazon (Fiscal years ended December 31)**
+*   **Fiscal 2024:** $77.7 billion in cash capital expenditures [6].
+*   **Fiscal 2025:** $128.3 billion in cash capital expenditures [6].
+*   **Increase:** $128.3 billion - $77.7 billion = **$50.6 billion** [6].
+*   **Percentage Increase:** $50.6 billion / $77.7 billion = **65.1%**.
+
+**Alphabet (Fiscal years ended December 31)**
+*   **Fiscal 2024:** $52,535 million in purchases of property and equipment [1].
+*   **Fiscal 2025:** $91,447 million in purchases of property and equipment [1].
+*   **Increase:** $91,447 million - $52,535 million = **$38,912 million** (or $38.9 billion) [1].
+*   **Percentage Increase:** $38,912 million / $52,535 million = **74.1%**.
+
+**Microsoft (Fiscal years ended June 30)**
+*   **Fiscal 2024:** $44,477 million in additions to property and equipment [4].
+*   **Fiscal 2025:** $64,551 million in additions to property and equipment [4].
+*   **Increase:** $64,551 million - $44,477 million = **$20,074 million** (or $20.1 billion) [4].
+*   **Percentage Increase:** $20,074 million / $44,477 million = **45.1%**.
+
+**Conclusion:**
+Amazon had the largest absolute dollar increase in capital expenditures at **$50.6 billion**, which represented a **65.1%** increase year-over-year.",False,,,False,3,Amazon FY2025 p.41 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.53 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.91 (Microsoft_10k_2025.pdf),30.958,
+gemini_native,10,True,True,hard-margin-compare,hard,"Compare profitability margins across the three companies for the most recent fiscal year: report gross margin for Microsoft and Alphabet, and operating margin for Amazon (which does not report gross profit). Rank the three margins from highest to lowest, with percentages.","For the most recent fiscal year (FY2025), the profitability margins for the three companies are calculated as follows:
+
+*   **Microsoft (Gross Margin):** For the fiscal year ended June 30, 2025, Microsoft's gross margin was **68.8%**. This is calculated as gross margin of $193,893 million divided by total revenue of $281,724 million [1].
+*   **Alphabet (Gross Margin):** For the fiscal year ended December 31, 2025, Alphabet's gross margin was **59.7%**. This is calculated by subtracting cost of revenues of $162,535 million from consolidated revenues of $402,836 million to find a gross profit of $240,301 million, and then dividing by consolidated revenues of $402,836 million [5].
+*   **Amazon (Operating Margin):** For the fiscal year ended December 31, 2025, Amazon's operating margin was **11.2%**. This is calculated as operating income of $79,975 million divided by total net sales of $716,924 million [8].
+
+**Ranking from highest to lowest:**
+1. **Microsoft** (Gross Margin): 68.8% [1]
+2. **Alphabet** (Gross Margin): 59.7% [5]
+3. **Amazon** (Operating Margin): 11.2% [8]",True,,,False,3,Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf) | Alphabet FY2025 p.33 (Alphabet_10k_2025.pdf) | Amazon FY2025 p.61 (Amazon_10k_2025.pdf),21.131,

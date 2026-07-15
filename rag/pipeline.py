@@ -7,15 +7,17 @@ model, and the grounded 10-K prompt into a single LCEL chain, and exposes
 
 Retrieval flow (both stages toggleable for A/B evals):
 
-1. Query rewriting (``use_query_rewriting``, default OFF): the LLM expands the
-   question into up to 3 diverse, 10-K-vocabulary search queries
-   (company-specific for cross-company questions); the original question is
-   always searched too.
-2. Candidate pool: top results are retrieved for every query and merged with
-   round-robin dedup — ~``fetch_k`` candidates when reranking is on.
-3. MMR reranking (``use_reranking``, default ON): candidates are reranked
+1. Query rewriting (``use_query_rewriting``, default ON): the LLM DECOMPOSES
+   the question into up to 10 targeted, 10-K-vocabulary search queries — one
+   per company-metric pair for multi-entity questions (plus segment-flavored
+   queries when business segments are involved), so every company's filing is
+   searched; just a couple of rephrasings for single-entity questions. The
+   original question is always searched too.
+2. Candidate pool: top results are retrieved PER query and merged with
+   round-robin dedup — at least ~``fetch_k`` candidates when reranking is on.
+3. MMR reranking (``use_reranking``, default ON): the merged pool is reranked
    against the ORIGINAL question (relevance + diversity) and only the top
-   ``k`` are passed to the LLM, so the final context size is unchanged.
+   ``k`` are passed to the LLM, so the final context size is fixed at ``k``.
 
 With both toggles off the pipeline is the original plain top-k similarity
 search.
@@ -101,14 +103,18 @@ class RagPipeline:
         k: Number of chunks passed to the LLM per question (final context size).
         chunk_size / chunk_overlap: Chunking params used when the index was
             built; they select which persisted index to load.
-        use_query_rewriting: Expand the question into diverse 10-K-vocabulary
-            search queries with one extra LLM call before retrieving (default
-            False — see the A/B note on the constructor defaults). Adds
-            roughly 1-3s latency per question when enabled.
-        use_reranking: Retrieve a larger candidate pool (~``fetch_k``) and MMR-
-            rerank it against the original question, keeping only the top ``k``
-            (default True).
-        fetch_k: Target size of the merged candidate pool when reranking.
+        use_query_rewriting: Decompose the question into targeted 10-K
+            search queries (one per company-metric pair for multi-entity
+            questions) with one extra LLM call before retrieving (default
+            True — see the note on the constructor defaults). Adds roughly
+            1-3s latency per question when enabled.
+        use_reranking: Retrieve a larger candidate pool (>= ``fetch_k``) and
+            MMR-rerank it against the original question, keeping only the top
+            ``k`` (default True).
+        fetch_k: Minimum target size of the merged candidate pool when
+            reranking; each sub-query additionally fetches at least ``k`` so
+            decomposed multi-entity questions build a proportionally larger
+            pool.
         mmr_lambda: MMR relevance/diversity trade-off (1.0 = pure relevance,
             0.0 = pure diversity).
 
@@ -120,19 +126,25 @@ class RagPipeline:
     def __init__(
         self,
         config_name: str = "gemini_native",
-        k: int = 5,
+        k: int = 10,
         chunk_size: int = 1000,
         chunk_overlap: int = 150,
-        # Defaults set by A/B eval (gemini_native, 16-question gold set, two
-        # runs per arm): baseline 80% key-facts @ ~8s; query rewriting 91.7%
-        # (varied 100%/91.7% between runs) @ ~16s; MMR reranking 91.7% (stable)
-        # @ ~7.5s; both 100%/91.7% @ ~40s. Reranking matches rewriting's
-        # retrieval quality with no extra LLM call, no run-to-run variance, and
-        # roughly half the latency — so reranking is ON and rewriting is OFF in
-        # production. Both toggles stay for A/B reruns (eval/run_eval.py).
-        use_query_rewriting: bool = False,
+        # Defaults history. The original A/B eval (gemini_native, 16-question
+        # gold set, two runs per arm) picked reranking ON / rewriting OFF:
+        # baseline 80% key-facts @ ~8s; query rewriting 91.7% (varied
+        # 100%/91.7% between runs) @ ~16s; MMR reranking 91.7% (stable) @
+        # ~7.5s; both 100%/91.7% @ ~40s. The hard multi-company tier then
+        # exposed the cost of that choice: a question naming three companies
+        # embeds near ONE company's passages, so retrieval surfaced 1-2
+        # companies and the LLM correctly reported the rest missing. Fix:
+        # rewriting is now ON by default and DECOMPOSES multi-entity questions
+        # into per company-metric sub-queries (see rag.retrieval), with k
+        # raised 5 -> 10 and fetch_k 20 -> 40 so multi-figure answers keep
+        # enough distinct passages after reranking. Both toggles stay for A/B
+        # reruns (eval/run_eval.py).
+        use_query_rewriting: bool = True,
         use_reranking: bool = True,
-        fetch_k: int = 20,
+        fetch_k: int = 40,
         mmr_lambda: float = 0.5,
     ) -> None:
         self.config_name = config_name
@@ -163,9 +175,10 @@ class RagPipeline:
 
         if use_query_rewriting:
             print(
-                f"[{config_name}] Note: query rewriting is enabled -- each question "
-                "makes one extra LLM call before retrieval (expect roughly +1-3s "
-                "latency per question). Disable with use_query_rewriting=False."
+                f"[{config_name}] Note: query decomposition is enabled (production "
+                "default) -- each question makes one extra LLM call before "
+                "retrieval (expect roughly +1-3s latency per question). Disable "
+                "with use_query_rewriting=False."
             )
 
     def _retrieve(
@@ -205,9 +218,11 @@ class RagPipeline:
             emit("embedding", "Embedding your question")
             query_vec = self.embeddings.embed_query(question)
 
-        # Per-query depth: with reranking, split the ~fetch_k candidate budget
-        # across the queries; without it, each query fetches k and the merged
-        # round-robin list is truncated to k.
+        # Per-query depth: with reranking, every query fetches at least k (so
+        # each decomposed company-metric sub-query contributes real candidates
+        # to the merged pool) and a lone query fetches the full fetch_k;
+        # without reranking, each query fetches k and the merged round-robin
+        # list is truncated to k.
         if self.use_reranking:
             per_query = max(self.k, math.ceil(self.fetch_k / len(queries)))
         else:

@@ -1,0 +1,2 @@
+config,retrieval_k,query_rewriting,reranking,total_questions_run,errors,number_total,number_passed,number_accuracy_pct,boundary_total,boundary_passed,boundary_accuracy_pct,calculation_total,calculation_passed,calculation_accuracy_pct,hard_total,hard_passed,hard_accuracy_pct,comparison_total,qualitative_total,avg_key_facts_hit_pct,avg_latency_seconds,avg_latency_number,avg_latency_comparison,avg_latency_qualitative,avg_latency_boundary,avg_latency_calculation,avg_latency_hard
+gemini_native,10,True,True,5,0,0,0,,0,0,,0,0,,5,2,40.0,0,0,,24.523,,,,,,24.523

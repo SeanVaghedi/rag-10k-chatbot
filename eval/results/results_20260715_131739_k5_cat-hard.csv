@@ -1,0 +1,66 @@
+config,retrieval_k,query_rewriting,reranking,question_id,category,question,answer,passed,key_facts_hit,key_facts_total,needs_manual_review,sources_count,sources,latency_seconds,error
+gemini_native,5,False,True,hard-tax-diff,hard,"Using the effective tax rate reconciliation in each 10-K, which of Amazon, Alphabet, and Microsoft had the largest gap between the 21% U.S. federal statutory tax rate and its effective tax rate in the most recent fiscal year? Give each company's effective tax rate, and the largest reconciling item each company discloses.","Based on the provided excerpts, the effective tax rate reconciliation for Amazon is not included in the context, so its effective tax rate and reconciling items cannot be determined [3]. 
+
+Between Alphabet and Microsoft, **Alphabet** had the largest gap between the 21.0% U.S. federal statutory tax rate and its effective tax rate in the most recent fiscal year (a gap of 4.2 percentage points compared to Microsoft's 3.4 percentage points) [1, 5]. 
+
+Here are the details for each company for their respective 2025 fiscal years:
+
+*   **Alphabet (FY2025):**
+    *   **Effective Tax Rate:** 16.8% [1].
+    *   **Largest Reconciling Item:** ""Foreign-derived intangible income deduction,"" which reduced the rate by (2.5)% [1].
+*   **Microsoft (for the fiscal year ended June 30, 2025):**
+    *   **Effective Tax Rate:** 17.6% [5].
+    *   **Largest Reconciling Item:** Microsoft had two items tied for the largest absolute impact: ""Foreign earnings taxed at lower rates"" at (1.5)% and ""State income taxes, net of federal benefit"" at 1.5% [5].
+*   **Amazon (FY2025):**
+    *   **Effective Tax Rate & Reconciling Items:** Not available in the provided context [3].",False,,,False,3,Amazon FY2025 p.72 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.85 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.125 (Microsoft_10k_2025.pdf),43.341,
+gemini_native,5,False,True,hard-rd-intensity,hard,"For the most recent fiscal year, what was research and development spending as a percentage of total revenue for Amazon, Alphabet, and Microsoft, ranked from highest to lowest? For Amazon, use its 'technology and infrastructure' expense line, which contains its R&D spending.","Based on the provided excerpts, here is the research and development (R&D) spending as a percentage of total revenue for the most recent fiscal year (FY2025), ranked from highest to lowest for the companies with available data:
+
+1. **Amazon (15.1%)**: For the fiscal year ended December 31, 2025, Amazon reported ""Technology and infrastructure"" expenses of $108,521 million and total net sales of $716,924 million [5]. 
+*Calculation: $108,521 million / $716,924 million = 15.1%* [5].
+
+2. **Alphabet (15%)**: For the fiscal year ended December 31, 2025, Alphabet reported research and development expenses of $61,087 million, which the filing explicitly states is 15% of revenues [1].
+
+**Microsoft (Data Unavailable)**: For the fiscal year ended June 30, 2025, the provided context shows Microsoft's total revenue was $281,724 million, but it does not contain the company's research and development expenses [3]. Therefore, Microsoft's R&D percentage cannot be calculated or ranked.",False,,,False,3,Amazon FY2025 p.61 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.36 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.144 (Microsoft_10k_2025.pdf),77.964,
+gemini_native,5,False,True,hard-cloud-margin,hard,"What was the operating margin of Amazon's AWS segment, Alphabet's Google Cloud segment, and Microsoft's Intelligent Cloud segment in the most recent fiscal year? Rank the three cloud businesses from highest to lowest operating margin, with the margin percentages.","Based on the provided excerpts, I can only calculate the operating margin for Amazon's AWS segment. The necessary figures for Alphabet's Google Cloud and Microsoft's Intelligent Cloud are partially or completely missing from the context, making a full ranking impossible. 
+
+Here is the available data for the most recent fiscal year (FY2025 for all three companies):
+
+*   **Amazon (AWS):** For the fiscal year ended December 31, 2025, AWS reported an operating income of $45,606 million and net sales of $128,725 million [3]. 
+    *   *Calculation:* $45,606 million operating income / $128,725 million net sales = **35.4%** operating margin.
+*   **Alphabet (Google Cloud):** For the fiscal year ended December 31, 2025, Google Cloud reported an operating income of $13,910 million [1]. However, the provided context does not contain Google Cloud's revenue, so its operating margin cannot be calculated.
+*   **Microsoft (Intelligent Cloud):** The context describes the Intelligent Cloud segment [2], but neither its segment revenue nor its segment operating income for the fiscal year ended June 30, 2025, are provided (only consolidated company totals are available) [2, 5]. Therefore, its operating margin cannot be calculated.
+
+Because only Amazon's AWS margin (35.4%) can be computed from the provided text, the requested highest-to-lowest ranking cannot be completed.",False,,,False,4,Amazon FY2025 p.109 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.37 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.142 (Microsoft_10k_2025.pdf) | Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf),56.368,
+gemini_native,5,False,True,hard-capex-trend,hard,"Which of Amazon, Alphabet, and Microsoft had the largest dollar increase in purchases of property and equipment (capital expenditures) from fiscal 2024 to fiscal 2025, per their cash flow statements? Give each company's figure for both years, and state the largest increase in dollars and as a percentage.","Based on the provided excerpts, Amazon's cash flow statement is not included in the context, so its exact cash flow figure for purchases of property and equipment is unavailable [3]. However, using Amazon's ""total net additions to property and equipment"" (which includes non-cash activity) alongside the cash flow statement figures for Alphabet and Microsoft, here is the comparison:
+
+*   **Alphabet** (for the fiscal year ended December 31, per its cash flows statement):
+    *   **Fiscal 2024:** $52,535 million [1]
+    *   **Fiscal 2025:** $91,447 million [1]
+    *   **Dollar Increase:** $38,912 million ($91,447 million - $52,535 million) [1]
+    *   **Percentage Increase:** 74.1% ($38,912 million / $52,535 million) [1]
+
+*   **Microsoft** (for the fiscal year ended June 30, per its cash flows statement):
+    *   **Fiscal 2024:** $44,477 million [4]
+    *   **Fiscal 2025:** $64,551 million [4]
+    *   **Dollar Increase:** $20,074 million ($64,551 million - $44,477 million) [4]
+    *   **Percentage Increase:** 45.1% ($20,074 million / $44,477 million) [4]
+
+*   **Amazon** (for the fiscal year ended December 31, per its net additions table):
+    *   **Fiscal 2024:** $85,752 million [3]
+    *   **Fiscal 2025:** $142,352 million [3]
+    *   **Dollar Increase:** $56,600 million ($142,352 million - $85,752 million) [3]
+    *   **Percentage Increase:** 66.0% ($56,600 million / $85,752 million) [3]
+
+**Conclusion:**
+Based strictly on the available cash flow statements, **Alphabet** had the largest dollar increase in purchases of property and equipment at $38,912 million (which is also the highest percentage increase at 74.1%) [1]. However, if including Amazon's broader ""total net additions to property and equipment"" metric, **Amazon** had the largest absolute dollar increase at $56,600 million [3].",False,,,False,3,Amazon FY2025 p.112 (Amazon_10k_2025.pdf) | Alphabet FY2025 p.53 (Alphabet_10k_2025.pdf) | Microsoft FY2025 p.91 (Microsoft_10k_2025.pdf),99.555,
+gemini_native,5,False,True,hard-margin-compare,hard,"Compare profitability margins across the three companies for the most recent fiscal year: report gross margin for Microsoft and Alphabet, and operating margin for Amazon (which does not report gross profit). Rank the three margins from highest to lowest, with percentages.","Based on the provided excerpts for the most recent fiscal year (FY2025), here is the profitability margin comparison:
+
+*   **Microsoft (for the fiscal year ended June 30, 2025):** The gross margin is **68.8%**. This is calculated as gross margin of $193,893 million divided by total revenue of $281,724 million [1].
+*   **Alphabet (for the fiscal year ended December 31, 2025):** The gross margin is **59.7%**. This is calculated by subtracting cost of revenues ($162,535 million) from consolidated revenues ($402,836 million) to find a gross profit of $240,301 million, which is then divided by consolidated revenues of $402,836 million [5].
+*   **Amazon (for the fiscal year ended December 31, 2025):** The operating margin cannot be calculated. While the context provides Amazon's consolidated net sales of $716,924 million, it genuinely lacks the operating income figure required to compute the operating margin [3].
+
+**Ranking of Available Margins (Highest to Lowest):**
+1. **Microsoft:** 68.8% (Gross Margin) [1]
+2. **Alphabet:** 59.7% (Gross Margin) [5]
+
+*(Amazon is excluded from the ranking due to insufficient context to calculate its operating margin).*",False,,,False,3,Microsoft FY2025 p.87 (Microsoft_10k_2025.pdf) | Alphabet FY2025 p.33 (Alphabet_10k_2025.pdf) | Amazon FY2025 p.111 (Amazon_10k_2025.pdf),53.553,

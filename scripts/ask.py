@@ -29,7 +29,7 @@ def parse_args() -> argparse.Namespace:
         default="gemini_native",
         help="Named provider config to use (default: gemini_native).",
     )
-    parser.add_argument("--k", type=int, default=5, help="Chunks to retrieve (default: 5).")
+    parser.add_argument("--k", type=int, default=10, help="Chunks to retrieve (default: 10).")
     parser.add_argument("--chunk-size", type=int, default=1000, help="Index chunk size (tokens).")
     parser.add_argument("--chunk-overlap", type=int, default=150, help="Index chunk overlap (tokens).")
     return parser.parse_args()

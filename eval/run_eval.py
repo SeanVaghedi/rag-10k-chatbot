@@ -19,6 +19,11 @@ grading):
              (a refusal / unavailability statement). Historical figures quoted
              for context do NOT fail it; only a fabricated projected/forecast
              figure -- or no acknowledgement of unavailability at all -- fails.
+- hard     : multi-company, multi-statement questions. Pass only if EVERY
+             expected component figure appears in the answer, each scored with
+             the calculation tolerances above. Refusal = fail (all hard
+             questions are answerable from the corpus); this is enforced
+             implicitly, since a refusal states none of the required figures.
 - comparison / qualitative : cannot be auto-graded reliably, so these are
              flagged ``needs_manual_review`` and only a ``key_facts`` hit-count
              is logged as a soft signal.
@@ -30,30 +35,38 @@ Usage:
     python eval/run_eval.py                                     # all configs
     python eval/run_eval.py --config gemini_native             # a single config
     python eval/run_eval.py --configs gemini_native,llama_local   # a subset
-    python eval/run_eval.py --config gemini_native --k 8       # sweep retrieval depth
-    python eval/run_eval.py --config gemini_native --no-reranking   # plain top-k baseline
-    python eval/run_eval.py --config gemini_native --query-rewriting  # rewriting arm
+    python eval/run_eval.py --config gemini_native --k 5       # sweep retrieval depth
+    python eval/run_eval.py --config gemini_native --no-reranking   # drop the MMR stage
+    python eval/run_eval.py --config gemini_native --no-query-rewriting  # drop decomposition
+    python eval/run_eval.py --config gemini_native --category hard  # one category only
 
 ``--k`` overrides how many chunks the retriever returns for this run only (a
-retrieval-depth sweep, e.g. k=3 / 5 / 8). It does NOT change the production
-default (RagPipeline / build_retriever still default to k=5).
+retrieval-depth sweep, e.g. k=5 / 10 / 15). It does NOT change the production
+default (RagPipeline defaults to k=10).
 
 ``--query-rewriting`` / ``--reranking`` (and their ``--no-*`` forms) toggle the
-pipeline's query expansion and MMR reranking stages for this run. Defaults
-mirror the production RagPipeline defaults — reranking ON, query rewriting OFF,
-as decided by the retrieval A/B (reranking matched rewriting's key-facts gain
-with no extra LLM call, no run-to-run variance, and roughly half the latency).
+pipeline's query decomposition and MMR reranking stages for this run. Defaults
+mirror the production RagPipeline defaults — BOTH ON since the multi-company
+retrieval fix: rewriting now decomposes a multi-entity question into targeted
+per company-metric sub-queries so every named company's filing is searched
+(the original A/B had chosen reranking-only, which the hard tier showed
+surfaces only 1-2 companies' passages for 3-company questions).
 The four A/B arms:
-    (default)                          reranking only  == production
-    --query-rewriting                  rewriting + reranking
-    --query-rewriting --no-reranking   rewriting only
-    --no-reranking                     plain top-k baseline
+    (default)                             rewriting + reranking  == production
+    --no-query-rewriting                  reranking only  (pre-fix production)
+    --no-reranking                        rewriting only
+    --no-query-rewriting --no-reranking   plain top-k baseline
 Note that query rewriting adds one extra LLM call per question, so runs with it
 enabled are noticeably slower per question (roughly +1-3s).
 
-Outputs (in eval/results/, tagged with the retrieval depth ``k`` and any
-retrieval stage that deviates from the production defaults: ``_qr`` when
-rewriting is on, ``_norr`` when reranking is off):
+``--category`` restricts the run to a single gold-set category (e.g. ``hard``
+for a quick pass over just the five hard questions). Summary columns for the
+categories that were not run show n/a / zero counts.
+
+Outputs (in eval/results/, tagged with the retrieval depth ``k``, any
+retrieval stage that deviates from the production defaults — ``_noqr`` when
+rewriting is off, ``_norr`` when reranking is off — and ``_cat-<name>`` when
+``--category`` restricts the run):
     results_<timestamp>_k<k>[tags].csv   one row per (config, question) with scores.
     summary_<timestamp>_k<k>[tags].csv   per-config aggregates (incl. retrieval flags).
     results_<timestamp>_k<k>[tags].jsonl full records incl. retrieved source chunks.
@@ -77,7 +90,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from config.providers import REGISTRY  # noqa: E402
-from eval.gold_set import CATEGORIES, GOLD_SET  # noqa: E402
+from eval.gold_set import CATEGORIES, GOLD_SET, by_category  # noqa: E402
 from rag.pipeline import RagPipeline  # noqa: E402
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
@@ -91,10 +104,11 @@ CHUNK_PARAMS_OVERRIDE: Dict[str, Tuple[int, int]] = {
 }
 
 # Retrieval depth (chunks retrieved per question). Mirrors the RagPipeline /
-# build_retriever default (k=5); used only to label runs and as the value passed
-# when --k is omitted. Override per eval run with --k to compare retrieval depth
-# without touching the production default.
-DEFAULT_K = 5
+# build_retriever default (k=10, raised from 5 by the multi-company retrieval
+# fix); used only to label runs and as the value passed when --k is omitted.
+# Override per eval run with --k to compare retrieval depth without touching
+# the production default.
+DEFAULT_K = 10
 
 
 def chunk_params_for(config_name: str) -> Tuple[int, int]:
@@ -260,6 +274,25 @@ def score_calculation(answer: str, expected: Dict) -> bool:
     return False
 
 
+def score_hard(answer: str, expected: Dict) -> bool:
+    """Score a hard (multi-company, multi-statement) answer.
+
+    ``expected`` carries ``components``: a list of ``{label, value,
+    answer_type}`` dicts, one per figure a correct answer must state. The
+    answer passes only if EVERY component is found, each matched with the same
+    tolerances as calculation questions (+/-0.3 percentage points for
+    percents, +/-1% relative for dollar amounts).
+
+    Refusal = fail, by construction: hard questions are all answerable from
+    the corpus, and a refusal states none of the required figures, so no
+    component matches.
+    """
+    components = expected.get("components") or []
+    if not components or not answer:
+        return False
+    return all(score_calculation(answer, component) for component in components)
+
+
 def count_key_facts(answer: str, key_facts: List[str]) -> Tuple[int, int]:
     """Return ``(hits, total)`` — how many key_facts appear in ``answer``."""
     norm_answer = normalize(answer)
@@ -301,6 +334,8 @@ def _score_record(
             passed = score_calculation(answer, expected)
         elif category == "boundary":
             passed = score_boundary(answer)
+        elif category == "hard":
+            passed = score_hard(answer, expected)
         elif needs_manual:
             key_facts_hit, key_facts_total = count_key_facts(
                 answer, expected.get("key_facts", [])
@@ -384,6 +419,7 @@ def summarize(
     number_total, number_passed, number_acc = accuracy(in_cat("number"))
     boundary_total, boundary_passed, boundary_acc = accuracy(in_cat("boundary"))
     calc_total, calc_passed, calc_acc = accuracy(in_cat("calculation"))
+    hard_total, hard_passed, hard_acc = accuracy(in_cat("hard"))
 
     # Average key_facts hit-rate across the manual-review rows that have facts.
     kf_rows = [r for r in rows if ok(r) and r["key_facts_total"]]
@@ -413,6 +449,9 @@ def summarize(
         "calculation_total": calc_total,
         "calculation_passed": calc_passed,
         "calculation_accuracy_pct": calc_acc,
+        "hard_total": hard_total,
+        "hard_passed": hard_passed,
+        "hard_accuracy_pct": hard_acc,
         "comparison_total": len(in_cat("comparison")),
         "qualitative_total": len(in_cat("qualitative")),
         "avg_key_facts_hit_pct": kf_pct,
@@ -422,6 +461,7 @@ def summarize(
         "avg_latency_qualitative": avg_latency(in_cat("qualitative")),
         "avg_latency_boundary": avg_latency(in_cat("boundary")),
         "avg_latency_calculation": avg_latency(in_cat("calculation")),
+        "avg_latency_hard": avg_latency(in_cat("hard")),
     }
 
 
@@ -475,6 +515,9 @@ _SUMMARY_COLUMNS = [
     "calculation_total",
     "calculation_passed",
     "calculation_accuracy_pct",
+    "hard_total",
+    "hard_passed",
+    "hard_accuracy_pct",
     "comparison_total",
     "qualitative_total",
     "avg_key_facts_hit_pct",
@@ -484,6 +527,7 @@ _SUMMARY_COLUMNS = [
     "avg_latency_qualitative",
     "avg_latency_boundary",
     "avg_latency_calculation",
+    "avg_latency_hard",
 ]
 
 
@@ -547,7 +591,7 @@ def print_summary_table(summaries: List[Dict], skipped: List[Tuple[str, str]]) -
 
     header = (
         f"{'Config':24} {'k':>3} {'QR':>3} {'RR':>3} {'NumAcc':>7} {'BndAcc':>7} "
-        f"{'CalcAcc':>8} {'KFhit':>6} {'AvgLat':>8}  {'Lat n/c/q/b':<20} "
+        f"{'CalcAcc':>8} {'HardAcc':>8} {'KFhit':>6} {'AvgLat':>8}  {'Lat n/c/q/b':<20} "
         f"{'Run':>4} {'Err':>4}"
     )
     print(header)
@@ -572,6 +616,7 @@ def print_summary_table(summaries: List[Dict], skipped: List[Tuple[str, str]]) -
             f"{pct(s['number_accuracy_pct']):>7} "
             f"{pct(s['boundary_accuracy_pct']):>7} "
             f"{pct(s.get('calculation_accuracy_pct')):>8} "
+            f"{pct(s.get('hard_accuracy_pct')):>8} "
             f"{pct(s['avg_key_facts_hit_pct']):>6} "
             f"{lat(s['avg_latency_seconds']):>8}  "
             f"{lat_by_cat:<20} "
@@ -605,19 +650,29 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Retrieval depth: retrieve N chunks per question for this run, "
             f"overriding the default (k={DEFAULT_K}). Use to compare retrieval "
-            "depth, e.g. --k 3 / --k 5 / --k 8. Does not change the production "
-            "default."
+            "depth, e.g. --k 5 / --k 10 / --k 15. Does not change the "
+            "production default."
+        ),
+    )
+    parser.add_argument(
+        "--category",
+        choices=CATEGORIES,
+        default=None,
+        help=(
+            "Run only the gold-set questions in this category (e.g. "
+            "'--category hard' runs just the hard tier). Default: run every "
+            "category."
         ),
     )
     parser.add_argument(
         "--query-rewriting",
         action=argparse.BooleanOptionalAction,
-        default=False,
+        default=True,
         help=(
-            "Enable/disable LLM query rewriting (multi-query retrieval) for "
-            "this run. Default mirrors the production RagPipeline default "
-            "(off, per the retrieval A/B); pass --query-rewriting to re-run "
-            "the rewriting arms."
+            "Enable/disable LLM query decomposition (multi-query retrieval) "
+            "for this run. Default mirrors the production RagPipeline default "
+            "(on, per the multi-company retrieval fix); pass "
+            "--no-query-rewriting to measure the pre-fix reranking-only arm."
         ),
     )
     parser.add_argument(
@@ -675,12 +730,14 @@ def run_config(
     k: int,
     use_query_rewriting: bool,
     use_reranking: bool,
+    questions: List[Dict],
 ) -> Optional[List[Dict]]:
-    """Run the whole gold set against one config at retrieval depth ``k``.
+    """Run ``questions`` against one config at retrieval depth ``k``.
 
-    Returns the list of result rows (each stamped with ``retrieval_k`` and the
-    retrieval-stage flags), or ``None`` if the config was skipped because its
-    index has not been built yet.
+    ``questions`` is the (possibly ``--category``-filtered) subset of the gold
+    set to run. Returns the list of result rows (each stamped with
+    ``retrieval_k`` and the retrieval-stage flags), or ``None`` if the config
+    was skipped because its index has not been built yet.
     """
     chunk_size, chunk_overlap = chunk_params_for(config_name)
     print(
@@ -703,9 +760,9 @@ def run_config(
         print(f"  ERROR building pipeline for '{config_name}': {init_error}")
         print("  Logging this error against all questions and continuing.\n")
 
-    num_questions = len(GOLD_SET)
+    num_questions = len(questions)
     rows: List[Dict] = []
-    for q_index, question in enumerate(GOLD_SET, start=1):
+    for q_index, question in enumerate(questions, start=1):
         if init_error:
             record = _score_record(config_name, question, "", [], 0.0, init_error)
         else:
@@ -739,12 +796,20 @@ def main() -> None:
         print("No valid configs to run. Exiting.")
         return
 
+    questions = by_category(args.category) if args.category else list(GOLD_SET)
+
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     total_configs = len(configs)
+    question_scope = (
+        f"{len(questions)} of {len(GOLD_SET)} questions "
+        f"(category={args.category})"
+        if args.category
+        else f"{len(GOLD_SET)} questions"
+    )
     print(
-        f"Gold set: {len(GOLD_SET)} questions | retrieval k={k} | "
+        f"Gold set: {question_scope} | retrieval k={k} | "
         f"query rewriting {'ON' if use_query_rewriting else 'OFF'} | "
         f"reranking {'ON' if use_reranking else 'OFF'} | "
         f"Configs to run ({total_configs}): {', '.join(configs)}"
@@ -763,7 +828,13 @@ def main() -> None:
 
     for index, config_name in enumerate(configs, start=1):
         rows = run_config(
-            config_name, index, total_configs, k, use_query_rewriting, use_reranking
+            config_name,
+            index,
+            total_configs,
+            k,
+            use_query_rewriting,
+            use_reranking,
+            questions,
         )
         if rows is None:
             skipped.append((config_name, "index not built"))
@@ -774,14 +845,18 @@ def main() -> None:
         )
 
     # Write outputs even if partial, so a long/interrupted run still logs data.
-    # Filenames carry the retrieval depth plus a tag for any retrieval stage
-    # that deviates from the production defaults (rewriting off, reranking on),
-    # so different sweeps don't overwrite each other and are clearly labeled.
-    # (Runs from before the defaults flipped used _noqr instead; the
+    # Filenames carry the retrieval depth, a tag for any retrieval stage that
+    # deviates from the production defaults (rewriting on, reranking on), and
+    # a _cat-<name> tag when --category restricted the run, so different
+    # sweeps don't overwrite each other and are clearly labeled.
+    # (Tag semantics have flipped with the production defaults over time —
+    # runs from the rewriting-off era used _qr for rewriting ON; the
     # query_rewriting/reranking columns inside each file are authoritative.)
-    variant = ("_qr" if use_query_rewriting else "") + (
+    variant = ("" if use_query_rewriting else "_noqr") + (
         "" if use_reranking else "_norr"
     )
+    if args.category:
+        variant += f"_cat-{args.category}"
     results_csv = RESULTS_DIR / f"results_{timestamp}_k{k}{variant}.csv"
     summary_csv = RESULTS_DIR / f"summary_{timestamp}_k{k}{variant}.csv"
     results_jsonl = RESULTS_DIR / f"results_{timestamp}_k{k}{variant}.jsonl"
@@ -805,10 +880,12 @@ def main() -> None:
         print("No configs produced results.")
     print()
     print(
-        "Legend: NumAcc/BndAcc/CalcAcc = number, boundary & calculation "
-        "accuracy; KFhit = avg key_facts hit-rate\n"
+        "Legend: NumAcc/BndAcc/CalcAcc/HardAcc = number, boundary, calculation "
+        "& hard accuracy; KFhit = avg key_facts hit-rate\n"
         "        (comparison/qualitative are flagged needs_manual_review -- "
         "KFhit is a soft signal only).\n"
+        "        HardAcc = multi-company multi-statement questions; pass "
+        "requires EVERY expected component figure, refusal = fail.\n"
         "        Lat n/c/q/b = avg latency (s) per category: "
         "number/comparison/qualitative/boundary."
     )

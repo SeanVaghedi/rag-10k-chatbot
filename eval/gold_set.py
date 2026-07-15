@@ -26,6 +26,17 @@ each scored differently by the harness:
                     rather than fabricate. ``expected`` carries
                     ``expected_behavior="refuse"``. Auto-graded: pass if the
                     answer refuses and states no fabricated figure.
+- ``hard``        — a multi-company, multi-statement question needing MANY
+                    distinct figures from ALL THREE companies in one answer.
+                    ``expected`` carries ``components``: a list of
+                    ``{label, value, answer_type}`` dicts, one per figure a
+                    correct answer must state. Auto-graded (see
+                    :func:`eval.run_eval.score_hard`): pass only if EVERY
+                    component appears within the calculation tolerances
+                    (+/-0.3pp for percents, +/-1% for dollar amounts).
+                    Refusal fails — all five are answerable from the corpus —
+                    and does so automatically, since a refusal states none of
+                    the required figures.
 
 The figures below are drawn from the Amazon, Alphabet, and Microsoft filings that
 make up the corpus. Tesla (Q11) is intentionally absent from the corpus.
@@ -39,7 +50,7 @@ from __future__ import annotations
 from typing import Dict, List
 
 # Valid category values (kept in sync with eval.run_eval).
-CATEGORIES = ("number", "calculation", "comparison", "qualitative", "boundary")
+CATEGORIES = ("number", "calculation", "comparison", "qualitative", "boundary", "hard")
 
 
 GOLD_SET: List[Dict] = [
@@ -403,6 +414,287 @@ GOLD_SET: List[Dict] = [
             ),
         },
     },
+    # ------------------------------------------------------------------ HARD
+    # Multi-company, multi-statement stress tier. Each question needs MANY
+    # distinct figures from ALL THREE companies, drawn from different parts of
+    # the filings (tax reconciliation note, income statement, segment note,
+    # cash flow statement), combined in a single answer. This is the retrieval
+    # pattern the bot currently fails on; these five establish the baseline
+    # failure rate BEFORE any retrieval fix. They deliberately span different
+    # question shapes and different filing sections, so passing them
+    # demonstrates general capability rather than memorization of a phrasing.
+    #
+    # Scoring (eval.run_eval.score_hard): PASS only if EVERY component figure
+    # appears in the answer within the calculation tolerances (+/-0.3
+    # percentage points for percents, +/-1% relative for dollar amounts).
+    # Refusal = fail, enforced implicitly: a refusal states none of the
+    # required figures, so no component matches.
+    #
+    # NEEDS VERIFICATION: every figure below was read by hand from the PDFs in
+    # data/pdfs/ (source statement/note cited per entry) but has NOT yet been
+    # human-verified, so every entry carries "needs_verification": True.
+    # Verify each component against the cited source before trusting HardAcc.
+    {
+        # Effective tax rate reconciliations, FY2025, all three companies:
+        #   Amazon   (Income Taxes note): provision $19,087M on pretax income
+        #            $97,311M -> effective 19.6% (printed in the table).
+        #            Gap: 21.0 - 19.6 = 1.4pp. Largest reconciling item:
+        #            state and local income taxes +$2,455M (+2.5pp), in a
+        #            near-tie with R&D tax credits -$2,403M (-2.5pp) --
+        #            treat either as correct when verifying.
+        #   Alphabet (Income Taxes note): provision $26,656M on pretax income
+        #            $158,826M -> effective 16.8% (printed). Gap: 21.0 - 16.8
+        #            = 4.2pp, the LARGEST of the three. Largest reconciling
+        #            item: foreign-derived intangible income deduction
+        #            -$3,931M (-2.5pp).
+        #   Microsoft (Income Taxes note; percent-only table): effective
+        #            17.6% (printed). Gap: 21.0 - 17.6 = 3.4pp. Largest
+        #            reconciling item: foreign earnings taxed at lower rates
+        #            (Ireland) -1.5pp; state income taxes is +1.5pp of equal
+        #            magnitude, but the filing narrative credits lower-taxed
+        #            foreign earnings as the primary driver.
+        # Computed answer: Alphabet had the largest gap -- 4.2pp below the 21%
+        # statutory rate (effective 16.8%), vs Microsoft 3.4pp (17.6%) and
+        # Amazon 1.4pp (19.6%).
+        "id": "hard-tax-diff",
+        "question": (
+            "Using the effective tax rate reconciliation in each 10-K, which "
+            "of Amazon, Alphabet, and Microsoft had the largest gap between "
+            "the 21% U.S. federal statutory tax rate and its effective tax "
+            "rate in the most recent fiscal year? Give each company's "
+            "effective tax rate, and the largest reconciling item each "
+            "company discloses."
+        ),
+        "category": "hard",
+        "expected": {
+            "components": [
+                {
+                    "label": "Amazon effective tax rate FY2025",
+                    "value": 19.6,
+                    "answer_type": "percent",
+                },
+                {
+                    "label": "Microsoft effective tax rate FY2025",
+                    "value": 17.6,
+                    "answer_type": "percent",
+                },
+                {
+                    "label": "Alphabet effective tax rate FY2025 (largest gap)",
+                    "value": 16.8,
+                    "answer_type": "percent",
+                },
+            ],
+            "needs_verification": True,
+        },
+    },
+    {
+        # R&D intensity, most recent FY (FY2025), income statement lines:
+        #   Alphabet  R&D $61,087M / revenues $402,836M = 15.16% -> 15.2%
+        #             (the filing's own table rounds this to "15 %").
+        #   Amazon    technology and infrastructure $108,521M / net sales
+        #             $716,924M = 15.14% -> 15.1% (the filing's "Percent of
+        #             Net Sales" table prints 15.1%). Amazon reports no
+        #             standalone R&D line; the question pins it to this line.
+        #   Microsoft R&D $32,488M / revenue $281,724M = 11.53% -> 11.5%
+        #             (CAUTION: Microsoft's MD&A prints this rounded as
+        #             "12%", which is OUTSIDE the +/-0.3pp tolerance of 11.5;
+        #             decide at verification time whether that matters).
+        # Computed answer: Alphabet 15.2% >= Amazon 15.1% > Microsoft 11.5%
+        # (Alphabet and Amazon are nearly tied -- and within grading
+        # tolerance of each other, so either figure satisfies both
+        # components; Microsoft is clearly lowest).
+        "id": "hard-rd-intensity",
+        "question": (
+            "For the most recent fiscal year, what was research and "
+            "development spending as a percentage of total revenue for "
+            "Amazon, Alphabet, and Microsoft, ranked from highest to lowest? "
+            "For Amazon, use its 'technology and infrastructure' expense "
+            "line, which contains its R&D spending."
+        ),
+        "category": "hard",
+        "expected": {
+            "components": [
+                {
+                    "label": "Alphabet R&D as % of revenue FY2025",
+                    "value": 15.2,
+                    "answer_type": "percent",
+                },
+                {
+                    "label": "Amazon technology and infrastructure as % of net sales FY2025",
+                    "value": 15.1,
+                    "answer_type": "percent",
+                },
+                {
+                    "label": "Microsoft R&D as % of revenue FY2025",
+                    "value": 11.5,
+                    "answer_type": "percent",
+                },
+            ],
+            "needs_verification": True,
+        },
+    },
+    {
+        # Cloud segment operating margins, FY2025 -- none of these margins is
+        # printed in the filings; each must be computed from the segment
+        # revenue and operating income disclosures:
+        #   Microsoft Intelligent Cloud (MD&A Segment Results table):
+        #            op income $44,589M / revenue $106,265M = 41.96% -> 42.0%
+        #   Amazon AWS (Segment Information note):
+        #            op income $45,606M / net sales $128,725M = 35.43% -> 35.4%
+        #   Alphabet Google Cloud (segment note / MD&A segment tables):
+        #            op income $13,910M / revenues $58,705M = 23.69% -> 23.7%
+        # Computed answer: Microsoft Intelligent Cloud 42.0% > Amazon AWS
+        # 35.4% > Google Cloud 23.7%.
+        "id": "hard-cloud-margin",
+        "question": (
+            "What was the operating margin of Amazon's AWS segment, "
+            "Alphabet's Google Cloud segment, and Microsoft's Intelligent "
+            "Cloud segment in the most recent fiscal year? Rank the three "
+            "cloud businesses from highest to lowest operating margin, with "
+            "the margin percentages."
+        ),
+        "category": "hard",
+        "expected": {
+            "components": [
+                {
+                    "label": "Microsoft Intelligent Cloud operating margin FY2025",
+                    "value": 42.0,
+                    "answer_type": "percent",
+                },
+                {
+                    "label": "Amazon AWS operating margin FY2025",
+                    "value": 35.4,
+                    "answer_type": "percent",
+                },
+                {
+                    "label": "Google Cloud operating margin FY2025",
+                    "value": 23.7,
+                    "answer_type": "percent",
+                },
+            ],
+            "needs_verification": True,
+        },
+    },
+    {
+        # Capex from the consolidated statements of cash flows, FY2024 ->
+        # FY2025 (gross purchases line, not net of proceeds):
+        #   Amazon    "Purchases of property and equipment":
+        #             $82,999M -> $131,819M = +$48,820M = +58.8%  <- largest $
+        #   Alphabet  "Purchases of property and equipment":
+        #             $52,535M -> $91,447M = +$38,912M (= +74.1%, the largest
+        #             PERCENTAGE increase, but not the largest dollar one)
+        #   Microsoft "Additions to property and equipment" (its name for
+        #             the same line): $44,477M -> $64,551M = +$20,074M
+        #             (= +45.1%)
+        # Computed answer: Amazon had the largest dollar increase, +$48,820M
+        # (+58.8%), from $82,999M to $131,819M.
+        # Verification caveat: Amazon also discloses a NET capex line
+        # ("Purchases of property and equipment, net of proceeds from sales
+        # and incentives": $77,658M -> $128,320M, +$50,662M / +65.2%). An
+        # answer built on the net line fails the tolerances here; the
+        # question wording targets the gross purchases line.
+        "id": "hard-capex-trend",
+        "question": (
+            "Which of Amazon, Alphabet, and Microsoft had the largest dollar "
+            "increase in purchases of property and equipment (capital "
+            "expenditures) from fiscal 2024 to fiscal 2025, per their cash "
+            "flow statements? Give each company's figure for both years, and "
+            "state the largest increase in dollars and as a percentage."
+        ),
+        "category": "hard",
+        "expected": {
+            "components": [
+                {
+                    "label": "Amazon capex FY2024",
+                    "value": 82999,
+                    "answer_type": "dollars_millions",
+                },
+                {
+                    "label": "Amazon capex FY2025",
+                    "value": 131819,
+                    "answer_type": "dollars_millions",
+                },
+                {
+                    "label": "Alphabet capex FY2024",
+                    "value": 52535,
+                    "answer_type": "dollars_millions",
+                },
+                {
+                    "label": "Alphabet capex FY2025",
+                    "value": 91447,
+                    "answer_type": "dollars_millions",
+                },
+                {
+                    "label": "Microsoft capex FY2024",
+                    "value": 44477,
+                    "answer_type": "dollars_millions",
+                },
+                {
+                    "label": "Microsoft capex FY2025",
+                    "value": 64551,
+                    "answer_type": "dollars_millions",
+                },
+                {
+                    "label": "Amazon capex increase FY2024->FY2025 (largest)",
+                    "value": 48820,
+                    "answer_type": "dollars_millions",
+                },
+                {
+                    "label": "Amazon capex increase percentage",
+                    "value": 58.8,
+                    "answer_type": "percent",
+                },
+            ],
+            "needs_verification": True,
+        },
+    },
+    {
+        # Mixed statement structures, FY2025:
+        #   Microsoft prints a gross margin line on its income statement:
+        #             $193,893M / revenue $281,724M = 68.82% -> 68.8%
+        #   Alphabet  prints no gross profit line; compute revenues
+        #             $402,836M - cost of revenues $162,535M = $240,301M
+        #             -> 240,301 / 402,836 = 59.65% -> 59.7%
+        #   Amazon    reports neither gross profit nor a conventional cost of
+        #             revenue structure, so the question pins it to operating
+        #             margin: operating income $79,975M / net sales $716,924M
+        #             = 11.16% -> 11.2%
+        # Computed answer: Microsoft 68.8% (gross) > Alphabet 59.7% (gross) >
+        # Amazon 11.2% (operating).
+        # Verification caveat: an answer that instead computes an Amazon
+        # gross-style margin from cost of sales ((716,924 - 356,414) /
+        # 716,924 = 50.3%) fails the 11.2 component; the question wording
+        # pins Amazon to operating margin to avoid that ambiguity.
+        "id": "hard-margin-compare",
+        "question": (
+            "Compare profitability margins across the three companies for "
+            "the most recent fiscal year: report gross margin for Microsoft "
+            "and Alphabet, and operating margin for Amazon (which does not "
+            "report gross profit). Rank the three margins from highest to "
+            "lowest, with percentages."
+        ),
+        "category": "hard",
+        "expected": {
+            "components": [
+                {
+                    "label": "Microsoft gross margin FY2025",
+                    "value": 68.8,
+                    "answer_type": "percent",
+                },
+                {
+                    "label": "Alphabet gross margin FY2025",
+                    "value": 59.7,
+                    "answer_type": "percent",
+                },
+                {
+                    "label": "Amazon operating margin FY2025",
+                    "value": 11.2,
+                    "answer_type": "percent",
+                },
+            ],
+            "needs_verification": True,
+        },
+    },
 ]
 
 
@@ -422,8 +714,10 @@ def by_id(question_id: str) -> Dict:
 def needs_verification(question: Dict) -> bool:
     """True if this question's expected answer still awaits human verification.
 
-    Set on the harder table-disambiguation questions whose figures were read by
-    hand from the filings and have not yet been confirmed against the source.
+    Set on questions whose figures were read by hand from the filings and have
+    not yet been confirmed against the source — currently the entire ``hard``
+    tier (the table-disambiguation number questions carried this flag until
+    their figures were verified).
     """
     return bool((question.get("expected") or {}).get("needs_verification"))
 
@@ -457,4 +751,10 @@ if __name__ == "__main__":
         print("Awaiting human verification against the source filing:")
         for q in pending:
             exp = q.get("expected") or {}
-            print(f"  - {q['id']:34} expected {exp.get('figure', '?')}")
+            if "components" in exp:
+                expected_str = "; ".join(
+                    f"{c['label']}={c['value']}" for c in exp["components"]
+                )
+            else:
+                expected_str = exp.get("figure", "?")
+            print(f"  - {q['id']:34} expected {expected_str}")

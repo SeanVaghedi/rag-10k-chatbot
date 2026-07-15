@@ -3,8 +3,11 @@
 Provides:
 
 - :func:`build_retriever` — a top-k similarity retriever over the FAISS index.
-- :func:`rewrite_query` — LLM query expansion into diverse, 10-K-vocabulary
-  search queries (multi-query retrieval).
+- :func:`rewrite_query` — LLM query DECOMPOSITION into targeted, 10-K-vocabulary
+  search queries (multi-query retrieval): a question naming several companies
+  and/or metrics yields one query per company-metric pair (capped), so every
+  company's filing is searched; a single-entity question yields only a couple
+  of rephrasings.
 - :func:`merge_ranked_lists` — round-robin merge + dedupe of per-query results.
 - :func:`mmr_rerank` — MMR reranking of a merged candidate pool against the
   original question, using vectors reconstructed from the FAISS index.
@@ -31,32 +34,63 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.vectorstores import VectorStore
 
 
-def build_retriever(vectorstore: VectorStore, k: int = 5) -> BaseRetriever:
+def build_retriever(vectorstore: VectorStore, k: int = 10) -> BaseRetriever:
     """Return a similarity-search retriever yielding the top-``k`` chunks."""
     return vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": k})
 
 
 # ---------------------------------------------------------------------------
-# Query rewriting (multi-query retrieval)
+# Query rewriting (multi-query retrieval via decomposition)
 # ---------------------------------------------------------------------------
+# Cap on sub-queries per question. Ten covers e.g. a metric across three
+# companies plus per-company segment-flavored variants, while bounding the
+# extra embedding lookups per question.
+DEFAULT_NUM_QUERIES = 10
+
 _REWRITE_SYSTEM = """You generate search queries for a retrieval system over the annual 10-K \
 filings of Alphabet (Google), Amazon, and Microsoft.
 
-Rewrite the user's question into exactly {num_queries} diverse search queries that maximize the \
-chance of retrieving the passages needed to answer it. Rules:
+DECOMPOSE the user's question into at most {num_queries} short, targeted search queries that \
+together cover every fact needed to answer it. Rules:
 
-1. Use the vocabulary that appears in 10-K filings: e.g. "net sales", "total revenues", "segment \
+1. MULTI-PART QUESTIONS MUST BE DECOMPOSED: if the question names (or implies) several companies \
+and/or several metrics, emit one query per company-metric pair, naming the company explicitly — \
+e.g. "Amazon effective tax rate reconciliation", "Alphabet effective tax rate reconciliation", \
+"Microsoft effective tax rate reconciliation". A question about "the three companies" or "each \
+company" implies Amazon, Alphabet, and Microsoft. Every company-metric pair the answer needs must \
+get its own query, so every company's filing is searched, not just the one the embedding happens \
+to favor. If the pairs would exceed {num_queries}, keep one query per pair and drop rephrasings, \
+merging the least-distinct metrics last.
+2. SEGMENT QUESTIONS NEED SEGMENT-DISCLOSURE VOCABULARY: business-segment revenue and segment \
+operating income appear in the "Segment Results of Operations" section of MD&A and in the \
+segment-information footnote, not in the consolidated statements. If the question involves one or \
+more business segments, emit segment-flavored queries per company-segment pair using the \
+segment's official filing name — e.g. "<company> segment operating income <segment name>", \
+"<company> segment results of operations", "<company> reportable segments revenue operating \
+income". The reportable segments are: Amazon — North America, International, AWS; Alphabet — \
+Google Services, Google Cloud, Other Bets; Microsoft — Productivity and Business Processes, \
+Intelligent Cloud, More Personal Computing. Map informal names to the official segment name \
+(e.g. "Microsoft's cloud segment" is "Intelligent Cloud"), and for a product or service that \
+sits inside a segment (e.g. Azure, YouTube ads), also query its parent segment.
+3. AMAZON'S STATEMENT STRUCTURE DIFFERS from Alphabet's and Microsoft's, so Amazon needs its own \
+vocabulary. Amazon has no "research and development" expense line — its R&D-equivalent line item \
+is "Technology and infrastructure". For a question about Amazon R&D or research spending, also \
+emit "Amazon Technology and infrastructure expense" and "Amazon technology infrastructure costs". \
+Amazon's segment revenue and operating income (AWS, North America, International) appear in its \
+segment-information footnote: for an Amazon segment metric, also emit queries like "Amazon \
+segment information", "Amazon AWS operating income", "Amazon results of operations segments", \
+"Amazon net sales by segment".
+4. If the answer needs a specific statement, note, or fiscal year, say so in the query — e.g. \
+"Amazon purchases of property and equipment cash flow 2024", "Microsoft segment operating income".
+5. Use the vocabulary that appears in 10-K filings: e.g. "net sales", "total revenues", "segment \
 operating income", "fiscal year ended", "cash and cash equivalents", and official segment names \
 ("AWS", "Google Cloud", "Intelligent Cloud", "North America segment").
-2. Each query must take a different angle — different metric name, statement, or section — not be \
-a trivial paraphrase of the others.
-3. If the question involves more than one company (a comparison, or "all three companies"), \
-dedicate queries to specific companies — roughly one query per company, naming the company \
-explicitly — so every company's filing is searched, not just the one the embedding happens to \
-favor.
-4. Keep each query short (3–12 words): these are search strings, not sentences.
+6. A single-company, single-metric question needs only 2-3 queries: the company-metric query plus \
+one or two different angles (different metric name, statement, or section). Do NOT pad the list \
+to {num_queries} with trivial paraphrases.
+7. Keep each query short (3–12 words): these are search strings, not sentences.
 
-Return ONLY a JSON array of {num_queries} strings, with no other text."""
+Return ONLY a JSON array of at most {num_queries} strings, with no other text."""
 
 QUERY_REWRITE_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -116,8 +150,16 @@ def _message_text(content: object) -> str:
     return str(content)
 
 
-def rewrite_query(llm: BaseChatModel, question: str, num_queries: int = 3) -> List[str]:
-    """Expand ``question`` into up to ``num_queries`` 10-K-vocabulary search queries.
+def rewrite_query(
+    llm: BaseChatModel, question: str, num_queries: int = DEFAULT_NUM_QUERIES
+) -> List[str]:
+    """Decompose ``question`` into up to ``num_queries`` targeted search queries.
+
+    A multi-entity question (several companies and/or metrics) is decomposed
+    into one 10-K-vocabulary query per company-metric pair, so retrieval
+    searches every company's filing instead of only the one the whole-question
+    embedding happens to land near. A single-entity question yields just a
+    couple of alternative phrasings — the cap is a ceiling, not a target.
 
     One extra LLM call. Never raises: on any failure (provider error, unparsable
     output) it returns ``[]`` and the caller falls back to searching the
@@ -281,17 +323,31 @@ out-of-scope requests (future projections, companies not in the corpus) are stil
 GROUNDING; the distinction: computing from figures that ARE in the context is expected, while \
 fabricating figures that are NOT in the context is forbidden.
 
-6. NUMBER PRECISION: Quote figures exactly as they appear, with their units and scale \
+6. SEGMENT DATA LIVES IN SEGMENT DISCLOSURES: business-segment revenue and segment operating \
+income are reported in the segment results section of MD&A and in the segment-information \
+footnote, NOT in the consolidated statements — consolidated operating income is not a segment \
+figure. When asked for a segment metric, answer from the segment disclosure and name the segment \
+as the filing does. Segment operating margin is a derived metric per rule 5: compute it as \
+segment operating income divided by segment revenue when both are in the context. Never \
+substitute a company-wide figure for a segment figure, or one segment's figure for another's.
+
+7. AMAZON EXPENSE-LINE NAMING: Amazon's income statement has no separate "research and \
+development" line; its closest equivalent is "Technology and infrastructure". When asked about \
+Amazon's R&D or research spending, answer from the "Technology and infrastructure" figure and \
+state the substitution explicitly — e.g. "Amazon does not report a standalone R&D line; its \
+closest equivalent, technology and infrastructure expense, was ...".
+
+8. NUMBER PRECISION: Quote figures exactly as they appear, with their units and scale \
 (e.g. "$82,312 million"). When a figure is a composite (e.g. "cash, cash equivalents, and \
 restricted cash"), state exactly what it includes; do not relabel it as a narrower item.
 
-7. COMPANY SEPARATION: Never attribute one company's figure to another. If the context lacks a \
+9. COMPANY SEPARATION: Never attribute one company's figure to another. If the context lacks a \
 figure for a specifically named company, say so rather than substituting another company's number.
 
-8. INSUFFICIENT CONTEXT: If the retrieved context is partial or ambiguous, state what is available \
+10. INSUFFICIENT CONTEXT: If the retrieved context is partial or ambiguous, state what is available \
 and what is missing rather than guessing.
 
-9. CITATIONS: Support every claim with an inline citation to the numbered excerpt(s) you used. Put \
+11. CITATIONS: Support every claim with an inline citation to the numbered excerpt(s) you used. Put \
 the excerpt number(s) in square brackets right after the statement — e.g. "Amazon's total net sales \
 were $X in fiscal 2024 [2]" or "[1, 3]" when a statement draws on more than one excerpt. Cite ONLY \
 the excerpts you actually relied on; never cite an excerpt you did not use. If the context does not \
