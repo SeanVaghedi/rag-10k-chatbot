@@ -16,30 +16,42 @@ const RUNNING_CONFIG: { label: string; value: string }[] = [
   { label: "LLM", value: "Google Gemini 3.1 Pro (gemini-3.1-pro-preview)" },
   { label: "Embeddings", value: "gemini-embedding-001" },
   { label: "Vector store", value: "FAISS (local)" },
-  { label: "Chunk size / overlap", value: "1000 / 150 tokens" },
   {
     label: "Retrieval",
-    value: "MMR reranking — 20 candidates reranked to top 5 (k=5)",
+    value: "query decomposition → MMR reranking → top 10 (fetch 40)",
   },
+  { label: "Chunk size / overlap", value: "1000 / 150 tokens" },
   {
     label: "Corpus",
     value: "Alphabet, Amazon, Microsoft 10-K filings (FY2025)",
   },
 ];
 
-/** Production performance on the 24-question gold set (current pipeline:
- * MMR reranking + derived-metric prompt). */
+/** Performance on the CORE 24-question gold set (current pipeline: query
+ * decomposition + MMR reranking + derived-metric prompt). The hard
+ * multi-figure tier is scored separately (see HARD_TIER_NOTE) and is NOT
+ * folded into these numbers. */
 const PRODUCTION_METRICS: { label: string; value: string }[] = [
   { label: "Number accuracy", value: "100%" },
   { label: "Calculation accuracy", value: "100%" },
   { label: "Boundary accuracy", value: "100%" },
-  { label: "Retrieval richness (key-facts)", value: "91.7%" },
-  { label: "Avg latency", value: "~8s" },
+  { label: "Retrieval richness (key-facts, comparison questions)", value: "100%" },
+  { label: "Avg latency", value: "~15s" },
 ];
 
-/** Retrieval A/B on the gold set: how the production retrieval was chosen.
- * `keyFacts` drives the bar width; `valueLabel` is what's printed (the
- * combined arm matched 91.7% but added no gain over reranking alone). */
+/** The hard multi-figure tier, reported as its own boundary — deliberately
+ * separate from the core-set metrics above. */
+const HARD_TIER_NOTE =
+  "On deliberately hard three-company, multi-statement questions, the " +
+  "system fully answers those needing Microsoft and Alphabet data — " +
+  "including segment-level margins — but does not consistently surface " +
+  "Amazon's segment-level figures. On these it reports what it retrieves " +
+  "and explicitly flags what it cannot, rather than fabricating. This is " +
+  "a known, documented boundary, not a hidden failure.";
+
+/** Retrieval optimization progression on the gold set: each stage's
+ * key-facts hit-rate on comparison questions. `keyFacts` drives the bar
+ * width; the final pipeline composes decomposition WITH reranking. */
 const RETRIEVAL_AB: {
   name: string;
   keyFacts: number;
@@ -49,23 +61,17 @@ const RETRIEVAL_AB: {
 }[] = [
   { name: "Baseline (top-k only)", keyFacts: 80, valueLabel: "80%", meta: "~8s" },
   {
-    name: "Query rewriting",
-    keyFacts: 91.7,
-    valueLabel: "91.7%",
-    meta: "~16s · varies run-to-run",
-  },
-  {
     name: "MMR reranking",
     keyFacts: 91.7,
     valueLabel: "91.7%",
     meta: "~8s · deterministic",
-    selected: true,
   },
   {
-    name: "Rewriting + reranking",
-    keyFacts: 91.7,
-    valueLabel: "no gain",
-    meta: "~40s",
+    name: "+ Query decomposition",
+    keyFacts: 100,
+    valueLabel: "100%",
+    meta: "~15s · one extra LLM call",
+    selected: true,
   },
 ];
 
@@ -128,13 +134,6 @@ const EVAL_ROWS: EvalRow[] = [
     boundary: "100%",
     keyFacts: "37%",
   },
-];
-
-/** Key-facts hit-rate by retrieval depth (k sweep on gemini_native). */
-const K_SWEEP = [
-  { k: 3, keyFacts: 43, selected: false },
-  { k: 5, keyFacts: 80, selected: true },
-  { k: 8, keyFacts: 80, selected: false },
 ];
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -249,9 +248,9 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
             </dl>
           </section>
 
-          {/* A2 — Production performance */}
-          <section aria-label="Production performance">
-            <Eyebrow>Production performance</Eyebrow>
+          {/* A2 — Core gold-set performance */}
+          <section aria-label="Core gold-set performance">
+            <Eyebrow>Core gold-set performance — 24 questions</Eyebrow>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
               {PRODUCTION_METRICS.map((m) => (
                 <div
@@ -268,12 +267,28 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
               ))}
             </div>
             <p className="mt-2.5 px-1 text-[12px] leading-relaxed text-muted">
-              Measured on the 24-question gold set. Boundary accuracy =
+              Measured on the core 24-question gold set. Boundary accuracy =
               correctly refusing out-of-scope questions (projections,
               companies not in the corpus); calculation = derived metrics
               (growth rates, margins, dollar changes) computed from statement
-              figures.
+              figures. The hard tier below is scored separately and is not
+              included in these numbers.
             </p>
+          </section>
+
+          {/* A3 — Hard multi-figure tier (separate from the core numbers) */}
+          <section aria-label="Hard multi-figure tier">
+            <div className="flex items-center gap-2.5">
+              <Eyebrow>Hard multi-figure tier</Eyebrow>
+              <span className="inline-flex items-center rounded-full bg-amber-400/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-300 ring-1 ring-inset ring-amber-400/25">
+                known boundary
+              </span>
+            </div>
+            <div className="mt-3 rounded-xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-inset ring-white/[0.06]">
+              <p className="text-[12.5px] leading-relaxed text-ink/85">
+                {HARD_TIER_NOTE}
+              </p>
+            </div>
           </section>
 
           {/* B — Why this configuration */}
@@ -359,13 +374,12 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
             </div>
             <p className="mt-2.5 px-1 text-[12px] leading-relaxed text-muted">
               gemini_native selected: 100% number and boundary accuracy with
-              the richest retrieval; k=5 optimal by sweep (k=3→43%, k=5/8→80%
-              key-facts).
+              the richest retrieval of the five candidates.
             </p>
             <p className="mt-1.5 px-1 text-[11.5px] italic leading-relaxed text-muted/80">
               Comparison run at configuration-selection time; the selected
-              configuration was subsequently optimized with MMR reranking and
-              derived-metric support.
+              configuration was subsequently optimized with query
+              decomposition, MMR reranking, and derived-metric support.
             </p>
           </section>
 
@@ -425,52 +439,11 @@ export function ModelConfigPanel({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
               <p className="pt-0.5 text-[12px] leading-relaxed text-muted">
-                MMR reranking selected: matches query rewriting&apos;s quality
-                deterministically, at half the latency, with no extra LLM
-                call.
-              </p>
-            </div>
-          </section>
-
-          {/* C — Retrieval depth sweep */}
-          <section aria-label="Retrieval depth sweep">
-            <Eyebrow>Retrieval depth (k) sweep</Eyebrow>
-            <div className="mt-3 space-y-2.5 rounded-xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-inset ring-white/[0.06]">
-              {K_SWEEP.map((row, i) => (
-                <div key={row.k} className="flex items-center gap-3">
-                  <span
-                    className={`w-8 shrink-0 font-mono text-[12px] ${
-                      row.selected ? "font-semibold text-white" : "text-muted"
-                    }`}
-                  >
-                    k={row.k}
-                  </span>
-                  <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${row.keyFacts}%` }}
-                      transition={{
-                        delay: 0.2 + i * 0.09,
-                        type: "spring",
-                        stiffness: 110,
-                        damping: 22,
-                      }}
-                      className={`h-full rounded-full ${
-                        row.selected
-                          ? "bg-gradient-to-r from-accent to-accent2 shadow-glow-cyan"
-                          : "bg-white/20"
-                      }`}
-                    />
-                  </div>
-                  <span className="w-10 shrink-0 text-right font-mono text-[12px] tabular-nums text-ink/90">
-                    {row.keyFacts}%
-                  </span>
-                </div>
-              ))}
-              <p className="pt-1 text-[12px] leading-relaxed text-muted">
-                Key-facts hit-rate by retrieval depth (plain similarity
-                search, pre-reranking). k=5 chosen for equal richness to k=8
-                at lower latency and cost.
+                Query decomposition selected (composed with MMR reranking): a
+                multi-company question is split into targeted per-company
+                sub-queries, so every named company&apos;s filing is searched
+                — 100% key-facts on the comparison questions, at the cost of
+                one extra LLM call per question.
               </p>
             </div>
           </section>
